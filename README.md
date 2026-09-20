@@ -155,6 +155,8 @@ nothing is tied to one row.
 | `bluetooth` | Radio state, accented while something is connected. Hidden with no adapter. Click opens the device list | `panel`, `command` |
 | `window` | The focused window's title. Steps aside while something is playing | `maxWidth`, `hideWhenPlaying` |
 | `menu` | The system logo. Click opens the agent usage dashboard, right-click the Omarchy menu | `glyph`, `font`, `icon`, `size`, `panel`, `command`, `rightCommand` |
+| `tray` | Omarchy's system tray, whole. Takes no room when empty | the tray plugin's own |
+| `indicators` | Do-not-disturb, night light, screen recording, stay-awake, dictation, reminders | `alwaysShow`, `items` |
 | `controlCentre` | Opens the island's control centre, and lights up while it is open | `glyph` |
 
 Per-module options go in `modules`:
@@ -221,6 +223,29 @@ These all work too, and act on the island on the focused monitor:
 ```bash
 omarchy-shell shell toggle omarchy.clock
 omarchy-shell shell toggle omarchy.agents
+```
+
+#### Whole widgets
+
+Two of Omarchy's widgets are not one glyph and a panel — the tray is a
+variable row of application icons, and the indicator row is six independent
+status marks. There is nothing to reimplement there and no reason to, so
+`tray` and `indicators` mount those plugins outright, chrome and all. Both
+take no room when they have nothing to show.
+
+Anything else on the machine can be mounted the same way with `plugin:<id>`:
+
+```jsonc
+"right": ["plugin:omarchy.monitor", "tray", "indicators", "clock"]
+```
+
+A hosted widget reads its own settings out of the island's `modules` block,
+in whatever shape its manifest documents:
+
+```jsonc
+"modules": {
+  "indicators": { "alwaysShow": true }   // don't wait for hover
+}
 ```
 
 ### The capsules
@@ -589,6 +614,17 @@ always enough.
 
 **Glyphs render as boxes.** The modules use Nerd Font glyphs; make sure your
 terminal/system font is a Nerd Font variant.
+
+**A hosted Omarchy widget is missing.** Ask the island what it mounted:
+
+```bash
+omarchy-shell island debugSlots
+```
+
+One entry per hosted widget per screen. `available: false` means the plugin
+is disabled or its id is wrong; `iw: 0` with `available: true` means it
+loaded and has nothing to show, which for the tray and the indicator row is
+the normal resting state.
 
 ---
 

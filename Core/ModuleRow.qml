@@ -44,6 +44,22 @@ Row {
     spacing: Style.spacing.xxl
     height: itemHeight
 
+    // Which of Omarchy's own bar widgets a module name mounts, or "" for the
+    // island's own modules. `tray` and `indicators` are named outright
+    // because they are things a user wants rather than plumbing they should
+    // have to know the plugin id of; `plugin:<id>` is the escape hatch for
+    // everything else on the machine.
+    function hostedPluginId(name) {
+        var key = String(name);
+        if (key.indexOf("plugin:") === 0)
+            return key.substring("plugin:".length);
+        if (key === "tray")
+            return "omarchy.tray";
+        if (key === "indicators")
+            return "omarchy.indicators";
+        return "";
+    }
+
     function componentFor(name) {
         switch (String(name)) {
         case "clock":
@@ -101,10 +117,20 @@ Row {
             id: slot
             required property var modelData
 
-            readonly property var item: loader.item
+            // Omarchy's own widgets are mounted declaratively rather than
+            // through `inject()`. They are the one kind of content whose
+            // *identity* comes from the module name, and a plugin id that
+            // arrives one tick late leaves the slot looking permanently
+            // empty with nothing to say why.
+            readonly property string hostedId: root.hostedPluginId(modelData)
+            readonly property var item: hostedId !== "" ? hosted : loader.item
 
             height: root.itemHeight
-            width: Math.max(loader.implicitWidth, visible ? root.minSlot : 0)
+            readonly property real contentWidth: hostedId !== "" ? hosted.implicitWidth : loader.implicitWidth
+            // `minSlot` is a floor for content, not a reservation: something
+            // with nothing to draw takes no room at all, or an empty tray
+            // would hold a square of nothing open in the status corner.
+            width: contentWidth > 0 ? Math.max(contentWidth, root.minSlot) : 0
 
             // A Row reserves spacing around a zero-width child, which would
             // leave a gap where a hidden live module used to be, so absent
@@ -118,8 +144,24 @@ Row {
             // an ordinary property with no such coupling.
             visible: item ? item.shown !== false : false
 
+            PanelSlot {
+                id: hosted
+                anchors.centerIn: parent
+                height: root.itemHeight
+                width: implicitWidth
+
+                chrome: true
+                host: root.host
+                screenName: root.screenName
+                settings: Config.moduleOptions(root.config, String(slot.modelData))
+                // Empty for every module that is the island's own, which
+                // leaves this inert: no component, nothing loaded.
+                pluginId: slot.hostedId
+            }
+
             Loader {
                 id: loader
+                active: slot.hostedId === ""
                 // Centred, so a module given a slot wider than it asked for
                 // sits in the middle of it rather than against one edge.
                 anchors.centerIn: parent

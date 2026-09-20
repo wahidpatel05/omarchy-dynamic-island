@@ -106,7 +106,7 @@ var DEFAULTS = {
     left: ["menu"],
 
     // The glass capsule to the right of the island — the status corner.
-    right: ["network", "bluetooth", "clock", "battery"],
+    right: ["tray", "indicators", "network", "bluetooth", "clock", "battery"],
 
     // Revealed on hover, in place of the collapsed set.
     hover: ["albumArt", "media", "mediaControls", "volume", "battery"],
@@ -193,7 +193,11 @@ var DEFAULTS = {
         // Opens the island's own control centre, the way the Control Centre
         // button does on the macOS menu bar.
         controlCentre: { glyph: "\uf1de" },
+        // `tray` and `indicators` mount Omarchy's own widgets whole rather
+        // than reimplementing them, so they take their options from that
+        // plugin's own defaults and ignore anything set here.
         tray: {},
+        indicators: {},
         albumArt: {},
         waveform: { bars: 4 },
         // The compact form of a live activity. `glyph` is the fallback mark
@@ -300,7 +304,9 @@ var MODULES = [
     { id: "waveform", label: "Waveform", hint: "Visualiser. Hidden with nothing playing" },
     { id: "mediaControls", label: "Transport", hint: "Previous, play/pause, next" },
     { id: "liveIcon", label: "Task Icon", hint: "Running task's mark. Hidden when idle" },
-    { id: "liveRing", label: "Task Ring", hint: "Running task's progress. Hidden when idle" }
+    { id: "liveRing", label: "Task Ring", hint: "Running task's progress. Hidden when idle" },
+    { id: "tray", label: "Tray", hint: "Omarchy's system tray. Hidden when empty" },
+    { id: "indicators", label: "Indicators", hint: "Do-not-disturb, night light, recording, stay-awake" }
 ];
 
 function moduleCatalogue() {

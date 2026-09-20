@@ -12,15 +12,26 @@ import qs.Commons
 // panels unreachable from anywhere, not just from itself. That was the
 // island's situation until this existed.
 //
-// The widget is mounted for its panel alone: drawn at zero opacity and deaf
-// to the pointer, with one of the island's own glyphs over the top driving it.
-// That is what lets the status corner keep its own look and still open the
-// real panels.
+// Two ways to use one:
 //
-// It fills this item rather than sitting in a corner of it, and that is load
-// bearing: `PopupCard` anchors to the widget's button, so the button's rect
-// is what decides where the popup lands. Filling the slot puts it under the
-// glyph the user actually clicked.
+//   chrome: false   mounted for its panel alone — zero opacity, deaf to the
+//                   pointer — with one of the island's own glyphs over the
+//                   top driving it. That is what lets the status corner keep
+//                   its own look and still open the real panels.
+//   chrome: true    the plugin draws itself. The tray and the indicator row
+//                   are whole widgets rather than one glyph and a panel, so
+//                   there is nothing to reimplement and no reason to.
+//
+// Either way it fills this item, and that is load bearing: `PopupCard`
+// anchors to the widget's button, so the button's rect is what decides where
+// the popup lands. Filling the slot puts it under the glyph that was clicked.
+//
+// Emptiness is read off `implicitWidth`, never off `visible`. Reading a
+// child's `visible` gives the *effective* value, which already folds in the
+// parent's — so a row that hides a slot because its widget is hidden makes
+// the widget hidden, and the pair latches to false and never recovers. Both
+// widgets worth hosting here collapse their implicit width to zero when they
+// have nothing to show, which says the same thing without the cycle.
 Item {
     id: root
 
@@ -29,6 +40,12 @@ Item {
     // Which screen this copy lives on. There is one per island, and
     // `summonBarWidget` needs to know which of them a keybinding meant.
     property string screenName: ""
+    property bool chrome: false
+    // The widget's own settings, in the shape its manifest documents. The
+    // island passes its `modules.<name>` block straight through, so
+    // `modules.indicators.alwaysShow` reaches the indicator row exactly as
+    // it would from an inline bar entry.
+    property var settings: ({})
 
     // Reading `widgets` rather than calling a lookup helper is what makes
     // this re-evaluate when a plugin is enabled, disabled or reloaded — the
@@ -63,20 +80,39 @@ Item {
             widget.close();
     }
 
-    // Never takes up room: it is laid over whatever is already in the slot.
-    implicitWidth: 0
-    implicitHeight: 0
+    // A chromed widget is the slot's content and sizes it. One mounted for
+    // its panel alone is laid over whatever is already there and contributes
+    // nothing to the row's width.
+    readonly property bool occupies: chrome && available && widget.implicitWidth > 0
+
+    // How the row decides whether to leave a gap for this. See ModuleRow.
+    // Availability, not emptiness.
+    //
+    // The tempting test is "does it measure wider than nothing", and for the
+    // tray that works — its width is driven by how many icons it has. The
+    // indicator row is not so obliging: hidden, it reports zero width, so a
+    // row that hid it for being zero-wide would keep it zero-wide forever.
+    // Same latch as reading `visible`, wearing a different hat.
+    //
+    // So the slot stays in the layout whenever the plugin is there at all,
+    // and emptiness is expressed as zero width instead. The only cost is
+    // that a present-but-empty widget still earns the row's spacing, which
+    // at the capsule's two pixels is not worth another mechanism.
+    readonly property bool shown: !chrome || available
+
+    implicitWidth: occupies ? widget.implicitWidth : 0
+    implicitHeight: occupies ? widget.implicitHeight : 0
 
     Loader {
         id: loader
         anchors.fill: parent
         sourceComponent: root.component
 
-        opacity: 0
-        // `enabled` propagates down, which is what stops the hidden widget's
-        // own button from swallowing the click meant for the glyph drawn over
-        // it. The panel is a separate window and is unaffected.
-        enabled: false
+        opacity: root.chrome ? 1 : 0
+        // `enabled` propagates down, which is what stops a widget mounted for
+        // its panel alone from swallowing the click meant for the glyph drawn
+        // over it. The panel is a separate window and is unaffected.
+        enabled: root.chrome
 
         // The whole contract Omarchy's bar injects into a widget. Applied
         // again on the next tick because a widget that builds its button in
@@ -89,7 +125,9 @@ Item {
             if ("moduleName" in item)
                 item.moduleName = root.pluginId;
             if ("settings" in item)
-                item.settings = ({});
+                item.settings = Qt.binding(function () {
+                    return root.settings;
+                });
         }
 
         onLoaded: {

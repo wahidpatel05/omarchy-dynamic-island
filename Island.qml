@@ -691,6 +691,23 @@ Item {
             return "ok";
         }
 
+        function debugSlots(): string {
+            var out = [];
+            for (var i = 0; i < root.panelSlots.length; i++) {
+                var sl = root.panelSlots[i];
+                out.push({
+                    id: sl.pluginId,
+                    chrome: sl.chrome,
+                    available: sl.available,
+                    occupies: sl.occupies,
+                    iw: sl.widget ? sl.widget.implicitWidth : -1,
+                    vis: sl.widget ? sl.widget.visible : null,
+                    settings: sl.settings
+                });
+            }
+            return JSON.stringify(out);
+        }
+
         function activityList(): string {
             return JSON.stringify(live.snapshot());
         }
