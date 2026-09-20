@@ -1,0 +1,22 @@
+// Everything switched on: the island carries the information a status bar
+// would, reveals the rest on hover, and opens into a full control centre.
+{
+  "island": {
+    "collapsed": ["clock", "workspaces", "media"],
+    "hover": ["clock", "workspaces", "media", "volume", "battery"],
+    "expanded": ["media", "sliders", "notifications"],
+    "shape": {
+      "collapsedWidth": 260,
+      "collapsedHeight": 34
+    },
+    "modules": {
+      "clock": { "format": "ddd h:mm AP" },
+      "battery": { "warnBelow": 15 },
+      "media": { "maxTitleWidth": 170 }
+    },
+    "activities": {
+      "notification": { "maxBodyLines": 3 },
+      "media": { "duration": 3000 }
+    }
+  }
+}

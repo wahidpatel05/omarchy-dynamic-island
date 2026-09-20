@@ -1,0 +1,19 @@
+// Notifications appear in the island and nowhere else.
+//
+// Requires handing the island the notification bus first, because only one
+// process per session can own org.freedesktop.Notifications:
+//
+//   omarchy plugin disable omarchy.notifications
+//
+// Trade-off: this gives up Omarchy's notification history and do-not-disturb,
+// which live in the plugin you just disabled.
+{
+  "island": {
+    "activities": {
+      "notification": {
+        "source": "own",
+        "maxBodyLines": 3
+      }
+    }
+  }
+}

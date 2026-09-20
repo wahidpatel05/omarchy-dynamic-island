@@ -1,0 +1,14 @@
+// A bare notch. Nothing at rest, nothing on hover — the island exists only to
+// announce notifications and track changes, then gets out of the way.
+//
+// Merge the "island" object into bar.island in ~/.config/omarchy/shell.json.
+{
+  "island": {
+    "collapsed": [],
+    "hover": [],
+    "expanded": ["media"],
+    "shape": {
+      "collapsedWidth": 150
+    }
+  }
+}
