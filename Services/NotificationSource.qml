@@ -60,9 +60,51 @@ Item {
     property var recent: []
     readonly property int recentLimit: 5
 
+    // ------------------------------------------------------------ residue
+    //
+    // What a notification leaves behind when it times out unread: a dot on
+    // the resting pill, until you look.
+    //
+    // The distinction that makes this worth having is between a notification
+    // you *dismissed* and one that merely *expired*. Clicking the island
+    // means "got it" and leaves nothing; walking away while it counted down
+    // leaves the dot. Without that, the dot would either never appear or
+    // never go away.
+
+    readonly property bool residueEnabled: options.residue !== false
+
+    property bool residue: false
+    // Kept so the dot can carry the weight of what is waiting — a critical
+    // notification is worth a different colour from a chat message.
+    property int residueUrgency: 0
+
+    function clearResidue() {
+        residue = false;
+    }
+
+    Connections {
+        target: root.activities
+        enabled: root.activities !== null
+
+        function onExpired(type, byUser) {
+            if (type !== "notification")
+                return;
+            if (byUser || !root.residueEnabled) {
+                root.clearResidue();
+                return;
+            }
+            root.residue = true;
+        }
+    }
+
     function present(data, urgency, expireTimeout) {
         if (!enabled || !activities)
             return;
+
+        // A fresh notification supersedes whatever the last one left behind;
+        // the dot it raises on its own way out is the one that matters.
+        residue = false;
+        residueUrgency = Number(urgency) || 0;
 
         var next = recent.slice();
         next.unshift(data);

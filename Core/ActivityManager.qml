@@ -24,7 +24,11 @@ QtObject {
     // countdown under the pointer.
     property bool paused: false
 
-    signal expired(string type)
+    // `byUser` separates "you acknowledged this" from "it timed out", which
+    // is the whole difference between a notification you have seen and one
+    // that came and went while you were looking elsewhere. The residue dot
+    // is built entirely on that distinction.
+    signal expired(string type, bool byUser)
 
     function _now() {
         return Date.now();
@@ -78,7 +82,7 @@ QtObject {
             return false;
         stack = next;
         _schedule();
-        expired(key);
+        expired(key, true);
         return true;
     }
 
@@ -154,7 +158,7 @@ QtObject {
         if (dropped.length > 0) {
             stack = next;
             for (var d = 0; d < dropped.length; d++)
-                expired(dropped[d]);
+                expired(dropped[d], false);
         }
         _schedule();
     }

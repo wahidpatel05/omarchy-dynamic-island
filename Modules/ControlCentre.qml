@@ -33,6 +33,8 @@ Item {
         anchors.fill: parent
 
         glyph: root.glyph
+        host: root.host
+        tooltipText: root.open ? "Close control centre" : "Control centre"
         fontSize: root.fontSize > 0 ? Math.round(root.fontSize * 1.17) : 0
         foreground: root.open ? root.accent : root.foreground
         hoverOpacity: root.hoverOpacity

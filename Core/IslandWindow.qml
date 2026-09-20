@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.Commons
+import qs.Ui
 import "Motion.js" as Motion
 import "Config.js" as Config
 
@@ -491,6 +492,65 @@ PanelWindow {
         TapHandler {
             acceptedButtons: Qt.RightButton
             onTapped: host.setStudio(String(win.modelData.name), host.studioScreen === "")
+        }
+    }
+
+    // The tooltip for whatever is hovered in this island.
+    //
+    // A popup rather than an overlay inside the surface: the island's layer
+    // is only as tall as it needs to be, and a tooltip has to hang below the
+    // bar. One per island window, showing only for targets that live in it,
+    // so two monitors do not draw the same tooltip twice.
+    PopupWindow {
+        id: tooltip
+
+        visible: host !== null && host.tooltipShown && host.tooltipText !== "" && host.targetBelongsToWindow(host.tooltipTarget, win)
+        color: "transparent"
+        implicitWidth: Math.ceil(bubble.implicitWidth)
+        implicitHeight: Math.ceil(bubble.implicitHeight)
+
+        anchor {
+            id: tooltipAnchor
+            window: win
+            adjustment: PopupAdjustment.Slide
+            edges: Edges.Top | Edges.Left
+            gravity: Edges.Bottom | Edges.Right
+            rect.width: 1
+            rect.height: 1
+
+            onAnchoring: {
+                var target = host ? host.tooltipTarget : null;
+                if (!host || !host.targetBelongsToWindow(target, win))
+                    return;
+
+                var gap = Style.space(6);
+                var localX = target.width / 2 - tooltip.implicitWidth / 2;
+                var localY = win.bottomAnchored ? -tooltip.implicitHeight - gap : target.height + gap;
+
+                var point = win.contentItem.mapFromItem(target, localX, localY);
+                tooltipAnchor.rect.x = Math.round(point.x);
+                tooltipAnchor.rect.y = Math.round(point.y);
+            }
+        }
+
+        BorderSurface {
+            id: bubble
+            implicitWidth: tooltipLabel.implicitWidth + Style.space(20)
+            implicitHeight: tooltipLabel.implicitHeight + Style.space(14)
+            color: Color.tooltip.background
+            borderSpec: Border.surfaceSpec("tooltip", "border", Color.tooltip.border, 1)
+            radius: Math.max(Style.cornerRadius, Style.space(6))
+
+            Text {
+                id: tooltipLabel
+                anchors.centerIn: parent
+                text: host ? host.tooltipText : ""
+                color: Color.tooltip.text
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                textFormat: Text.PlainText
+                horizontalAlignment: Text.AlignHCenter
+            }
         }
     }
 

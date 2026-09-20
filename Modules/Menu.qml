@@ -52,6 +52,8 @@ Item {
         anchors.fill: parent
 
         glyph: root.glyph
+        host: root.host
+        tooltipText: options.tooltip !== undefined ? String(options.tooltip) : (root.panelPlugin !== "" ? "Agent usage" : "Menu")
         fontFamily: root.glyphFont
         iconSource: root.icon === "" ? "" : (root.icon.indexOf("://") === -1 ? "file://" + root.icon : root.icon)
         iconSize: options.size > 0 ? options.size : 0

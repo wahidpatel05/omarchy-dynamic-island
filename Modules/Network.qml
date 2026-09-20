@@ -89,6 +89,16 @@ Item {
 
     readonly property bool online: wiredDevice !== null || (wifiDevice !== null && wifiDevice.connected === true)
 
+    readonly property string tooltip: {
+        if (root.wiredDevice)
+            return "Ethernet";
+        if (root.activeNetwork)
+            return String(root.activeNetwork.name || "Wi-Fi") + (root.strength >= 0 ? "  ·  " + root.strength + "%" : "");
+        if (Networking.wifiEnabled === false)
+            return "Wi-Fi off";
+        return "Not connected";
+    }
+
     implicitWidth: button.implicitWidth
     implicitHeight: parent ? parent.height : Style.font.icon
 
@@ -105,6 +115,8 @@ Item {
         anchors.fill: parent
 
         glyph: root.glyph
+        host: root.host
+        tooltipText: root.tooltip
         fontSize: root.fontSize > 0 ? Math.round(root.fontSize * 1.17) : 0
         foreground: root.online ? root.foreground : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.5)
         hoverOpacity: root.hoverOpacity

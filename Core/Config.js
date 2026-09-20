@@ -100,7 +100,7 @@ var DEFAULTS = {
     // at all unless something is playing, so the pill quietly grows a cover on
     // one side and a visualiser on the other when music starts, then shrinks
     // back when it stops. Nothing has to switch them on.
-    collapsed: ["liveIcon", "albumArt", "media", "window", "waveform", "liveRing"],
+    collapsed: ["liveIcon", "albumArt", "media", "window", "waveform", "liveRing", "notificationDot"],
 
     // The glass capsule to the left of the island. Empty hides it entirely.
     left: ["menu"],
@@ -203,7 +203,10 @@ var DEFAULTS = {
         // The compact form of a live activity. `glyph` is the fallback mark
         // for a task that did not send one.
         liveIcon: { glyph: "󰄉" },
-        liveRing: { size: 0 }
+        liveRing: { size: 0 },
+        // The mark a missed notification leaves on the resting pill. Turn
+        // the whole behaviour off with `activities.notification.residue`.
+        notificationDot: { size: 0 }
     },
 
     // Behaviour
@@ -305,6 +308,7 @@ var MODULES = [
     { id: "mediaControls", label: "Transport", hint: "Previous, play/pause, next" },
     { id: "liveIcon", label: "Task Icon", hint: "Running task's mark. Hidden when idle" },
     { id: "liveRing", label: "Task Ring", hint: "Running task's progress. Hidden when idle" },
+    { id: "notificationDot", label: "Unread Dot", hint: "Marks a notification that timed out unread" },
     { id: "tray", label: "Tray", hint: "Omarchy's system tray. Hidden when empty" },
     { id: "indicators", label: "Indicators", hint: "Do-not-disturb, night light, recording, stay-awake" }
 ];

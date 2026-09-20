@@ -99,8 +99,110 @@ Item {
         }
         return out;
     }
-    function showTooltip(target, text) {}
-    function hideTooltip(target) {}
+    // ------------------------------------------------------------ tooltips
+    //
+    // Omarchy's widgets ask the bar to show their tooltips rather than
+    // drawing their own, so a bar that answers with nothing leaves every
+    // hosted widget mute — the tray icons, the indicator row, the Wi-Fi
+    // glyph. The island keeps the state here because there is one tooltip on
+    // screen at a time whatever it belongs to, and each island window draws
+    // it for the targets that live in it.
+    //
+    // The debounce is the part worth having: a widget calls this on every
+    // hover change, and a tooltip that appeared instantly would flicker
+    // along a row of icons as the pointer crossed it.
+
+    property var tooltipTarget: null
+    property string tooltipText: ""
+    property bool tooltipShown: false
+    property var pendingTooltipTarget: null
+    property string pendingTooltipText: ""
+    property int tooltipRequest: 0
+
+    readonly property int tooltipDelay: 400
+
+    function targetWindow(target) {
+        return target && target.QsWindow ? target.QsWindow.window : null;
+    }
+
+    function targetBelongsToWindow(target, window) {
+        return !!target && !!window && targetWindow(target) === window;
+    }
+
+    // `tooltipHovered` is the widget's own answer, and it folds in whether it
+    // is visible and interactive — so this never shows a tooltip for
+    // something that has since been hidden or disabled underneath the
+    // pointer.
+    function targetTooltipHovered(target) {
+        return !!target && target.visible !== false && target.opacity !== 0 && target.tooltipHovered === true;
+    }
+
+    function clearTooltip() {
+        tooltipDwell.stop();
+        pendingTooltipTarget = null;
+        pendingTooltipText = "";
+        tooltipTarget = null;
+        tooltipText = "";
+        tooltipShown = false;
+    }
+
+    function showTooltip(target, text) {
+        clearTooltip();
+
+        if (!targetTooltipHovered(target) || !text) {
+            tooltipRequest += 1;
+            return;
+        }
+
+        var request = tooltipRequest + 1;
+        tooltipRequest = request;
+        pendingTooltipTarget = target;
+        pendingTooltipText = text;
+
+        // Deferred by a tick: widgets call this from inside their own hover
+        // handler, and the pointer may already be on its way out.
+        Qt.callLater(function () {
+            if (request !== root.tooltipRequest)
+                return;
+            if (!root.targetTooltipHovered(root.pendingTooltipTarget)) {
+                root.clearTooltip();
+                return;
+            }
+            root.tooltipTarget = root.pendingTooltipTarget;
+            root.tooltipText = root.pendingTooltipText;
+            root.pendingTooltipTarget = null;
+            root.pendingTooltipText = "";
+            tooltipDwell.restart();
+        });
+    }
+
+    function hideTooltip(target) {
+        if (tooltipTarget !== target && pendingTooltipTarget !== target)
+            return;
+        tooltipRequest += 1;
+        clearTooltip();
+    }
+
+    Timer {
+        id: tooltipDwell
+        interval: root.tooltipDelay
+        onTriggered: {
+            if (root.targetTooltipHovered(root.tooltipTarget))
+                root.tooltipShown = true;
+            else
+                root.clearTooltip();
+        }
+    }
+
+    // A widget destroyed or hidden under the pointer never sends a leave, so
+    // the tooltip has to notice on its own rather than waiting to be told.
+    Timer {
+        interval: 100
+        running: root.tooltipShown
+        repeat: true
+        onTriggered: if (!root.targetTooltipHovered(root.tooltipTarget))
+            root.hideTooltip(root.tooltipTarget)
+    }
     function requestPopout(target) {
         activePopout = target;
         return true;
@@ -110,9 +212,6 @@ Item {
             activePopout = null;
     }
     function switchPanelFrom(target) {
-        return false;
-    }
-    function targetBelongsToWindow(target, window) {
         return false;
     }
     // ------------------------------------------------- hosted bar widgets
@@ -318,6 +417,10 @@ Item {
 
     function setExpanded(screenName, open) {
         expandedScreen = open ? String(screenName) : "";
+        // Opening the control centre *is* looking at it — the recent list is
+        // in there. Anything a notification left behind is spent.
+        if (open && notifications)
+            notifications.clearResidue();
     }
 
     // Which screen, if any, has the Studio open. Same one-at-a-time rule as

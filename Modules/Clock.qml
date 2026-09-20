@@ -24,6 +24,9 @@ Item {
     // calendar. Mounted invisibly behind the label; see Core/PanelSlot.qml.
     readonly property string panelPlugin: options.panel === undefined ? "" : String(options.panel)
 
+    // The long form of whatever the short form left out.
+    readonly property string tooltip: options.tooltip !== undefined ? String(options.tooltip) : Qt.formatDateTime(root.now, "dddd, d MMMM yyyy")
+
     property var now: new Date()
 
     implicitWidth: label.implicitWidth
@@ -57,6 +60,8 @@ Item {
         foreground: root.foreground
         hoverOpacity: root.hoverOpacity
         interactive: panelSlot.available
+        host: root.host
+        tooltipText: root.tooltip
         onActivated: panelSlot.toggle()
 
         Text {

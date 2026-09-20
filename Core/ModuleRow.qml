@@ -93,6 +93,8 @@ Row {
             return liveIconComponent;
         case "liveRing":
             return liveRingComponent;
+        case "notificationDot":
+            return notificationDotComponent;
         case "controlCentre":
         case "controlCenter":
             return controlCentreComponent;
@@ -286,5 +288,10 @@ Row {
     Component {
         id: liveRingComponent
         LiveRing {}
+    }
+
+    Component {
+        id: notificationDotComponent
+        NotificationDot {}
     }
 }

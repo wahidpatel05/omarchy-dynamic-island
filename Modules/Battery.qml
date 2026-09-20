@@ -33,6 +33,13 @@ Item {
     // Core/PanelSlot.qml.
     readonly property string panelPlugin: options.panel === undefined ? "" : String(options.panel)
 
+    readonly property string tooltip: {
+        if (!present)
+            return "";
+        var state = charging ? "charging" : (low ? "low" : "on battery");
+        return percent + "%  ·  " + state;
+    }
+
     // Nerd Font battery glyphs run from empty to full in ten steps.
     readonly property string glyph: {
         if (charging)
@@ -59,6 +66,8 @@ Item {
         foreground: root.foreground
         hoverOpacity: root.hoverOpacity
         interactive: panelSlot.available
+        host: root.host
+        tooltipText: root.tooltip
         onActivated: panelSlot.toggle()
 
         Row {

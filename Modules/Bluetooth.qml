@@ -51,6 +51,25 @@ Item {
         return connectedCount > 0 ? "󰂱" : "󰂯";
     }
 
+    readonly property string tooltip: {
+        if (!powered)
+            return "Bluetooth off";
+        if (connectedCount === 0)
+            return "Bluetooth on";
+        var names = [];
+        var devices = Bluetooth.devices ? Bluetooth.devices.values : [];
+        for (var i = 0; i < devices.length; i++) {
+            if (!devices[i].connected)
+                continue;
+            var name = String(devices[i].deviceName || devices[i].name || "");
+            // Battery is the reason to look at a headphone icon at all.
+            if (devices[i].batteryAvailable && devices[i].battery > 0)
+                name += "  ·  " + Math.round(devices[i].battery * 100) + "%";
+            names.push(name);
+        }
+        return names.join("\n");
+    }
+
     // Presence is declared to the row through `shown`; see ModuleRow.
     readonly property bool shown: adapter !== null && adapter !== undefined
     implicitWidth: shown ? button.implicitWidth : 0
@@ -69,6 +88,8 @@ Item {
         anchors.fill: parent
 
         glyph: root.glyph
+        host: root.host
+        tooltipText: root.tooltip
         fontSize: root.fontSize > 0 ? Math.round(root.fontSize * 1.17) : 0
         // Off reads as dimmed rather than as a different colour, so the row
         // keeps one accent — the one that means "something is connected".

@@ -15,6 +15,16 @@ Item {
     property real hoverOpacity: 0.1
     property bool interactive: true
 
+    // Tooltips go through the host rather than being drawn here, because
+    // there is one tooltip on screen at a time and it has to hang below the
+    // bar — outside this item, and outside the capsule. `tooltipHovered` is
+    // the same property name Omarchy's own widgets expose, so the host can
+    // ask one question of both.
+    property var host: null
+    property string tooltipText: ""
+
+    readonly property bool tooltipHovered: interactive && mouse.containsMouse
+
     // Emitted with the Qt mouse button that produced it, so a caller can give
     // right-click its own meaning without a second handler.
     signal activated(int button)
@@ -22,6 +32,25 @@ Item {
     readonly property bool hovered: interactive && mouse.containsMouse
 
     default property alias content: holder.data
+
+    function syncTooltip() {
+        if (!host)
+            return;
+        if (tooltipHovered && tooltipText !== "")
+            host.showTooltip(root, tooltipText);
+        else
+            host.hideTooltip(root);
+    }
+
+    onTooltipHoveredChanged: syncTooltip()
+    // Re-offer it when the words change under a pointer that has not moved —
+    // a battery ticking down, a network that just reconnected.
+    onTooltipTextChanged: if (tooltipHovered)
+        syncTooltip()
+
+    // A module removed under the pointer never sends a leave.
+    Component.onDestruction: if (host)
+        host.hideTooltip(root)
 
     Rectangle {
         anchors.fill: parent

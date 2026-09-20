@@ -145,6 +145,7 @@ nothing is tied to one row.
 | `waveform` | Playback visualiser. Moves while playing, settles flat when paused. Click skips | `bars` |
 | `liveIcon` | A running task's mark, on the leading edge. Hidden when idle | `glyph` |
 | `liveRing` | A running task's progress ring, on the trailing edge. Middle-click drops it | `size` |
+| `notificationDot` | A dot marking a notification that timed out unread | `size` |
 | `mediaControls` | Previous / play-pause / next | — |
 | `clock` | Time and date. Click opens the calendar | `format` (Qt date format), `panel` |
 | `workspaces` | Hyprland workspaces as dots; focused one stretches | `showEmpty`, `max` |
@@ -320,6 +321,22 @@ key and want to see the result, so the HUD preempts rather than queues.
 
 Hovering the island pauses a notification's dismissal countdown. Clicking it
 dismisses it.
+
+#### What a missed one leaves behind
+
+`residue` puts a dot on the resting pill when a notification times out
+while you were looking elsewhere. It clears the moment you acknowledge it —
+clicking the island, or opening the control centre, which is where the
+message actually is.
+
+The distinction it rests on is between a notification you *dismissed* and
+one that merely *expired*. Clicking the card means "got it" and leaves
+nothing behind; walking away while it counted down leaves the dot. Without
+that difference the dot would either never appear or never go away.
+
+The dot is the `notificationDot` module, so it goes wherever you put it —
+`"residue": false` turns the state off entirely, and removing the module
+from your rows just stops it being drawn.
 
 ### Live activities
 
@@ -527,6 +544,20 @@ winner is decided by registration order, so enabling capture while Omarchy's
 OSD is still running is a coin flip rather than an upgrade. When capture is on,
 the island's own volume and brightness watchers stand down, since the captured
 stream already carries them.
+
+---
+
+## Tooltips
+
+Hovering anything in the capsules names it: the Wi-Fi glyph gives the SSID
+and signal, Bluetooth gives the connected device and its battery where it
+reports one, the clock gives the long date, the battery gives charge and
+whether it is charging. Omarchy's hosted widgets — the tray, the indicator
+row — get theirs too, because they ask the bar to draw them and the island
+now answers rather than shrugging.
+
+They wait 400ms before appearing, so running the pointer along a row of
+icons does not strobe.
 
 ---
 
