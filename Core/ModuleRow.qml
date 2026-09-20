@@ -89,6 +89,8 @@ Row {
             return bluetoothComponent;
         case "window":
             return windowComponent;
+        case "label":
+            return labelComponent;
         case "liveIcon":
             return liveIconComponent;
         case "liveRing":
@@ -278,6 +280,11 @@ Row {
     Component {
         id: windowComponent
         ActiveWindow {}
+    }
+
+    Component {
+        id: labelComponent
+        Label {}
     }
 
     Component {

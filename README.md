@@ -155,6 +155,7 @@ nothing is tied to one row.
 | `network` | Wi-Fi arcs or an ethernet glyph, dimmed when offline. Click opens the Wi-Fi list | `panel`, `command` |
 | `bluetooth` | Radio state, accented while something is connected. Hidden with no adapter. Click opens the device list | `panel`, `command` |
 | `window` | The focused window's title. Steps aside while something is playing | `maxWidth`, `hideWhenPlaying` |
+| `label` | A word of your own. Steps aside while something is playing | `text`, `size`, `bold`, `letterSpacing`, `opacity`, `maxWidth`, `hideWhenPlaying` |
 | `menu` | The system logo. Click opens the agent usage dashboard, right-click the Omarchy menu | `glyph`, `font`, `icon`, `size`, `panel`, `command`, `rightCommand` |
 | `tray` | Omarchy's system tray, whole. Takes no room when empty | the tray plugin's own |
 | `indicators` | Do-not-disturb, night light, screen recording, stay-awake, dictation, reminders | `alwaysShow`, `items` |
@@ -166,6 +167,17 @@ Per-module options go in `modules`:
 "modules": {
   "clock": { "format": "HH:mm" },
   "battery": { "warnBelow": 15, "showPercentage": false }
+}
+```
+
+An empty island reads as something that has not loaded yet, so `label` gives
+it a resting state that looks deliberate — and gets out of the way the moment
+there is something real to show:
+
+```jsonc
+"collapsed": ["label", "albumArt", "media", "waveform"],
+"modules": {
+  "label": { "text": "impulse" }
 }
 ```
 

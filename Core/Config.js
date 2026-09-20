@@ -168,6 +168,10 @@ var DEFAULTS = {
         // `command` is the fallback for when that plugin is disabled.
         network: { panel: "omarchy.network", command: "omarchy-menu toggle setup.network" },
         bluetooth: { panel: "omarchy.bluetooth", command: "" },
+        // A word of your own on the resting pill — a wordmark, a hostname,
+        // whatever. Empty draws nothing, so the module is inert until you
+        // give it something to say.
+        label: { text: "", size: 0, bold: true, letterSpacing: 0.8, opacity: 0.92, maxWidth: 240, hideWhenPlaying: true },
         // The focused window's title. Steps aside while something is
         // actually playing, so the island reads as "now playing, or else
         // what you are looking at".
@@ -302,6 +306,7 @@ var MODULES = [
     { id: "controlCentre", label: "Control Centre", hint: "Opens the island's own panel" },
     { id: "workspaces", label: "Workspaces", hint: "Hyprland workspaces as dots" },
     { id: "window", label: "Window", hint: "Focused window's title" },
+    { id: "label", label: "Label", hint: "A word of your own. Steps aside while music plays" },
     { id: "media", label: "Now Playing", hint: "Track title. Hidden with nothing playing" },
     { id: "albumArt", label: "Album Art", hint: "Cover. Hidden with nothing playing" },
     { id: "waveform", label: "Waveform", hint: "Visualiser. Hidden with nothing playing" },
