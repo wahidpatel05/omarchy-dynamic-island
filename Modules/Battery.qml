@@ -29,7 +29,8 @@ Item {
         return steps[Math.max(0, Math.min(steps.length - 1, Math.round(fraction * 10)))];
     }
 
-    visible: present
+    // Presence is declared to the row through `shown`; see ModuleRow.
+    readonly property bool shown: present
     implicitWidth: present ? row.implicitWidth : 0
     implicitHeight: parent ? parent.height : Style.font.body
 

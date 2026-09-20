@@ -129,10 +129,13 @@ PanelWindow {
         }
     }
 
-    // Corner radius tracks height so the shape stays proportional: a 32px pill
-    // should read as a capsule, and a 300px card should not have the same tiny
-    // corner as the pill it grew out of.
-    readonly property real radiusBottom: Math.min(bodyH * 0.45, Math.max(shape.radiusBottom || 17, bodyH * 0.28))
+    // Corner radius tracks height, but not linearly. At rest the island should
+    // be a true capsule, so the radius is allowed all the way to half the
+    // height. Grown into a card it should not stay proportionally round — a
+    // 300px panel with a 150px corner is a lozenge, not a card — so the
+    // height-driven term is capped and the shape settles at a fixed rounding.
+    readonly property real maxCardRadius: Style.space(28)
+    readonly property real radiusBottom: Math.min(bodyH * 0.5, Math.max(shape.radiusBottom || 17, Math.min(maxCardRadius, bodyH * 0.28)))
     readonly property real radiusTop: attached ? (shape.radiusTop || 0) : radiusBottom
     readonly property real fillet: attached ? (shape.fillet || 0) : 0
 
@@ -318,6 +321,30 @@ PanelWindow {
                 } else if (win.expanded && win.pointerWasInside && win.behaviour.closeOnLeave !== false) {
                     host.setExpanded("", false);
                 }
+            }
+        }
+
+        // Scrolling the island adjusts volume; Shift-scroll steps tracks.
+        // The pointer is already there to read what the island is showing, so
+        // acting on it without moving to another surface is the whole point.
+        WheelHandler {
+            enabled: win.behaviour.scrollGestures !== false
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            onWheel: function (event) {
+                if (!host)
+                    return;
+                var vertical = event.angleDelta.y;
+                var horizontal = event.angleDelta.x;
+
+                // Horizontal travel, or Shift-modified vertical, means "next
+                // or previous" — the same convention a trackpad swipe follows.
+                var trackStep = horizontal !== 0 ? horizontal : (event.modifiers & Qt.ShiftModifier ? vertical : 0);
+                if (trackStep !== 0) {
+                    host.stepTrack(trackStep > 0 ? 1 : -1);
+                    return;
+                }
+                if (vertical !== 0)
+                    host.stepVolume(vertical > 0 ? 1 : -1);
             }
         }
 

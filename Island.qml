@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Services.Pipewire
 import qs.Commons
 import "Core"
 import "Activities"
@@ -9,6 +10,7 @@ import "Services"
 import "Expanded"
 import "Core/Config.js" as Config
 import "Core/Motion.js" as Motion
+import "Core/OsdIcons.js" as OsdIcons
 
 // Dynamic Island — an Omarchy `bar` plugin.
 //
@@ -175,6 +177,11 @@ Item {
             return notificationCardComponent;
         case "media":
             return mediaCardComponent;
+        case "volume":
+        case "brightness":
+            return hudCardComponent;
+        case "power":
+            return powerCardComponent;
         }
         return null;
     }
@@ -208,6 +215,16 @@ Item {
         MediaCard {}
     }
 
+    Component {
+        id: hudCardComponent
+        HudCard {}
+    }
+
+    Component {
+        id: powerCardComponent
+        PowerCard {}
+    }
+
     property Component expandedComponent: controlCentreComponent
 
     Component {
@@ -230,12 +247,24 @@ Item {
 
     BrightnessSource {
         id: brightness
-        // Read the backlight exactly while the control centre is open. Binding
-        // this here rather than from the panel avoids an ordering trap: the
-        // host is injected into the panel in onLoaded, which runs after the
-        // panel's own Component.onCompleted, so the panel cannot reliably
-        // reach back to this on startup.
+        config: root.config
+        activities: activities
+        // Force a re-read whenever the control centre opens. Binding this here
+        // rather than from the panel avoids an ordering trap: the host is
+        // injected into the panel in onLoaded, which runs after the panel's own
+        // Component.onCompleted, so the panel cannot reliably reach back here
+        // on startup.
         active: root.expandedScreen !== ""
+    }
+
+    AudioSource {
+        config: root.config
+        activities: activities
+    }
+
+    PowerSource {
+        config: root.config
+        activities: activities
     }
 
     // Shared playback state. Exposed on the root so the now-playing module and
@@ -246,6 +275,36 @@ Item {
         id: media
         config: root.config
         activities: activities
+    }
+
+    // ------------------------------------------------------------ gestures
+
+    readonly property real volumeStep: 0.05
+
+    function stepVolume(direction) {
+        var sink = Pipewire.defaultAudioSink;
+        if (!sink || !sink.audio)
+            return;
+        // Unmute on the way up: nudging the volume of a muted sink and hearing
+        // nothing is a worse outcome than the gesture being slightly eager.
+        if (direction > 0 && sink.audio.muted)
+            sink.audio.muted = false;
+        sink.audio.volume = Math.max(0, Math.min(1, sink.audio.volume + direction * volumeStep));
+    }
+
+    function stepTrack(direction) {
+        if (!mediaSource || !mediaSource.hasMedia)
+            return;
+        if (direction > 0)
+            mediaSource.next();
+        else
+            mediaSource.previous();
+    }
+
+    // Keeps the default sink's properties bound so `stepVolume` reads a live
+    // value rather than a stale one.
+    PwObjectTracker {
+        objects: Pipewire.defaultAudioSink ? [Pipewire.defaultAudioSink] : []
     }
 
     // ---------------------------------------------------------------- IPC
@@ -264,6 +323,61 @@ Item {
             return String(mon.name);
         var screens = root.targetScreens;
         return screens.length > 0 ? String(screens[0].name) : "";
+    }
+
+    // Omarchy's OSD, rendered by the island.
+    //
+    // The payload is Omarchy's own: { icon, message, value, max, duration }.
+    // Loading this only when asked keeps the island from registering a second
+    // handler for a target Omarchy's OSD plugin may still own.
+    Loader {
+        active: root.config.behaviour.captureOmarchyOsd === true
+        sourceComponent: osdBridgeComponent
+    }
+
+    Component {
+        id: osdBridgeComponent
+
+        IpcHandler {
+            target: "osd"
+
+            function show(payloadJson: string): string {
+                try {
+                    var p = JSON.parse(payloadJson || "{}");
+                    var max = Number(p.max);
+                    if (!isFinite(max) || max <= 0)
+                        max = 100;
+
+                    var message = String(p.message || "");
+                    var progress = OsdIcons.hasProgress(p.value, message);
+                    var fraction = progress ? Math.max(0, Math.min(1, Number(p.value) / max)) : 0;
+
+                    activities.push("volume", 60, {
+                        glyph: OsdIcons.glyphFor(p.icon, progress ? Math.round(fraction * 100) : -1),
+                        value: fraction,
+                        hasProgress: progress,
+                        message: message,
+                        muted: false
+                    }, Number(p.duration) || 1500);
+                } catch (e) {
+                    return "error";
+                }
+                return "ok";
+            }
+
+            function close(): string {
+                activities.dismiss("volume");
+                return "ok";
+            }
+
+            function state(): string {
+                return activities.has("volume") ? "open" : "closed";
+            }
+
+            function ping(): string {
+                return "ok";
+            }
+        }
     }
 
     IpcHandler {

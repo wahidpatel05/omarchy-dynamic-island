@@ -1,0 +1,17 @@
+// Flush against the top bezel like a MacBook notch, rather than floating.
+//
+// Setting topInset to 0 attaches the island to the screen edge and brings the
+// concave shoulders into play: `fillet` is the width of the curve that blends
+// the island's sides into the top edge, which is what stops the join reading
+// as a hard T. Square top corners complete the illusion — a notch has no top
+// corners to round.
+{
+  "island": {
+    "shape": {
+      "topInset": 0,
+      "radiusTop": 0,
+      "radiusBottom": 17,
+      "fillet": 15
+    }
+  }
+}

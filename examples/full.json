@@ -2,8 +2,8 @@
 // would, reveals the rest on hover, and opens into a full control centre.
 {
   "island": {
-    "collapsed": ["clock", "workspaces", "media"],
-    "hover": ["clock", "workspaces", "media", "volume", "battery"],
+    "collapsed": ["albumArt", "clock", "workspaces", "waveform"],
+    "hover": ["albumArt", "media", "mediaControls", "volume", "battery"],
     "expanded": ["media", "sliders", "notifications"],
     "shape": {
       "collapsedWidth": 260,

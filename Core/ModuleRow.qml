@@ -36,6 +36,12 @@ Row {
             return workspacesComponent;
         case "media":
             return mediaComponent;
+        case "albumArt":
+            return albumArtComponent;
+        case "waveform":
+            return waveformComponent;
+        case "mediaControls":
+            return mediaControlsComponent;
         case "battery":
             return batteryComponent;
         case "volume":
@@ -55,6 +61,19 @@ Row {
 
             height: root.itemHeight
             sourceComponent: root.componentFor(modelData)
+
+            // A Row reserves spacing around a zero-width child, which would
+            // leave a gap where a hidden live module used to be, so absent
+            // modules have to leave the layout entirely.
+            //
+            // Modules declare that through `shown`, never through `visible`.
+            // Qt propagates `visible` *down* — an invisible parent forces its
+            // children's `visible` to false — so binding this Loader's
+            // `visible` to its own `item.visible` makes each drive the other
+            // and both latch to false the moment either is. `shown` is an
+            // ordinary property with no such coupling.
+            visible: item ? item.shown !== false : false
+
 
             // Modules declare only what they use, so each property is offered
             // rather than assigned blind.
@@ -89,6 +108,21 @@ Row {
     Component {
         id: mediaComponent
         Media {}
+    }
+
+    Component {
+        id: albumArtComponent
+        NowPlayingArt {}
+    }
+
+    Component {
+        id: waveformComponent
+        Waveform {}
+    }
+
+    Component {
+        id: mediaControlsComponent
+        MediaControls {}
     }
 
     Component {

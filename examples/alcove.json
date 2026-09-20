@@ -1,0 +1,28 @@
+// The Alcove-style setup: a floating pill that owns every heads-up display on
+// the machine, grows album art and a waveform while music plays, and reveals
+// transport controls on hover.
+//
+// Hand the island Omarchy's OSD stream first, or you will see two of every
+// volume change:
+//
+//   omarchy plugin disable omarchy.osd
+{
+  "island": {
+    "collapsed": ["albumArt", "clock", "workspaces", "waveform"],
+    "hover": ["albumArt", "media", "mediaControls", "volume", "battery"],
+    "expanded": ["media", "sliders", "notifications"],
+    "shape": {
+      "topInset": 9,
+      "collapsedHeight": 34,
+      "collapsedWidth": 210
+    },
+    "motion": {
+      "response": 0.42,
+      "damping": 0.72
+    },
+    "behaviour": {
+      "captureOmarchyOsd": true,
+      "scrollGestures": true
+    }
+  }
+}

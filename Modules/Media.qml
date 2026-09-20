@@ -19,7 +19,8 @@ Item {
     readonly property bool hasMedia: media ? media.hasMedia : false
     readonly property int maxWidth: Style.space(options.maxTitleWidth || 150)
 
-    visible: hasMedia
+    // Presence is declared to the row through `shown`; see ModuleRow.
+    readonly property bool shown: hasMedia
     implicitWidth: hasMedia ? row.implicitWidth : 0
     implicitHeight: parent ? parent.height : Style.font.body
 

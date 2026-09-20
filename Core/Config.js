@@ -18,20 +18,24 @@ var DEFAULTS = {
         // The resting pill. Sized to sit comfortably under a laptop bezel
         // without looking like a bar that forgot to be full width.
         collapsedWidth: 210,
-        collapsedHeight: 32,
-        // Corner radii. The bottom is the one you actually read as "the
-        // island"; the top is only visible when the island floats.
+        collapsedHeight: 34,
+        // Corner radii. At rest these match half the height, so the pill is a
+        // true capsule; taller states round off at a fixed maximum instead of
+        // staying proportionally round.
         radiusBottom: 17,
-        radiusTop: 0,
-        // Concave shoulders blending the island into the screen edge. Set to 0
-        // for a detached pill.
+        radiusTop: 17,
+        // Concave shoulders blending the island into the screen edge. Only
+        // meaningful when the island is flush against it, so a floating island
+        // ignores this.
         fillet: 15,
         // Superellipse exponent. 2 is a plain circular corner; ~5 matches the
         // continuous curvature Apple uses. Above ~8 it reads as a bevel.
         curvature: 5,
-        // Gap between the island and the screen edge. Non-zero detaches it,
-        // which also disables the shoulders — there is no edge left to blend.
-        topInset: 0,
+        // Gap between the island and the screen edge. Non-zero detaches the
+        // island into a floating pill, which also disables the shoulders —
+        // there is no longer an edge to blend into. Set to 0 to sit flush
+        // against the bezel like a MacBook notch.
+        topInset: 9,
         // How much wider the island grows on hover.
         hoverPadding: 22,
         // Ceiling for expanded states, so a pathological notification cannot
@@ -61,10 +65,15 @@ var DEFAULTS = {
     },
 
     // What the resting pill carries. Empty renders a bare capsule.
-    collapsed: ["clock", "workspaces"],
+    //
+    // `albumArt` and `waveform` are live-activity modules: they render nothing
+    // at all unless something is playing, so the pill quietly grows a cover on
+    // one side and a visualiser on the other when music starts, then shrinks
+    // back when it stops. Nothing has to switch them on.
+    collapsed: ["albumArt", "clock", "workspaces", "waveform"],
 
     // Revealed on hover, in place of the collapsed set.
-    hover: ["clock", "workspaces", "media", "volume", "battery"],
+    hover: ["albumArt", "media", "mediaControls", "volume", "battery"],
 
     // Sections stacked in the click-to-open control centre, top to bottom.
     expanded: ["media", "sliders", "notifications"],
@@ -88,10 +97,13 @@ var DEFAULTS = {
             residue: true,
             maxBodyLines: 2
         },
-        volume: { enabled: true, duration: 1400 },
-        brightness: { enabled: true, duration: 1400 },
+        // Volume and brightness HUDs. These replace the system overlay, so
+        // turn Omarchy's own off to avoid two of them:
+        //   omarchy plugin disable omarchy.osd
+        volume: { enabled: true, duration: 1500 },
+        brightness: { enabled: true, duration: 1500 },
         media: { enabled: true, duration: 2600 },
-        power: { enabled: true, duration: 2600 }
+        power: { enabled: true, duration: 3000 }
     },
 
     // Per-module options, keyed by the names used in the arrays above.
@@ -103,7 +115,9 @@ var DEFAULTS = {
         audio: {},
         network: {},
         tray: {},
-        window: { maxWidth: 200 }
+        window: { maxWidth: 200 },
+        albumArt: {},
+        waveform: { bars: 4 }
     },
 
     // Behaviour
@@ -116,6 +130,19 @@ var DEFAULTS = {
         monitors: "focused",
         expandOnHover: true,
         expandOnClick: true,
+        // Scrolling over the island adjusts volume; holding Shift while
+        // scrolling steps through tracks.
+        scrollGestures: true,
+        // Take over Omarchy's on-screen display, so *every* OSD it would have
+        // shown — mute, keyboard backlight, touchpad, audio output switching —
+        // is drawn by the island instead of only the volume and brightness it
+        // watches itself.
+        //
+        // Enable this together with `omarchy plugin disable omarchy.osd`. Two
+        // handlers cannot share the `osd` IPC target, and which one wins is
+        // registration order, so turning this on while Omarchy's OSD is still
+        // enabled is a coin flip rather than an upgrade.
+        captureOmarchyOsd: false,
         // Close the control centre when the pointer leaves it.
         closeOnLeave: true,
         hoverDelay: 90
