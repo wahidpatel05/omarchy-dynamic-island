@@ -8,7 +8,9 @@ import "Core"
 import "Activities"
 import "Services"
 import "Expanded"
+import "Studio"
 import "Core/Config.js" as Config
+import "Core/Settings.js" as Settings
 import "Core/Motion.js" as Motion
 import "Core/OsdIcons.js" as OsdIcons
 
@@ -188,6 +190,62 @@ Item {
 
     onConfigChanged: Motion.clearCache()
 
+    // ----------------------------------------------------------- settings
+    //
+    // Writing config back where it came from. `shell.mutateShellConfig` hands
+    // us a clone of the whole shell config, persists whatever we leave in it,
+    // and re-publishes it through `barConfig` — so a write lands on disk and
+    // on screen from the same call, and a hand-edited shell.json and the
+    // Studio cannot drift apart.
+    //
+    // Paths are dotted and relative to `bar.island`: "shape.collapsedHeight".
+
+    readonly property bool settingsWritable: shell !== null && shell !== undefined && typeof shell.mutateShellConfig === "function"
+
+    function setSetting(path, value) {
+        if (!settingsWritable)
+            return false;
+        var ok = false;
+        shell.mutateShellConfig(function (draft) {
+            ok = Settings.set(draft, path, value);
+        });
+        return ok;
+    }
+
+    function resetSetting(path) {
+        if (!settingsWritable)
+            return false;
+        var ok = false;
+        shell.mutateShellConfig(function (draft) {
+            ok = Settings.reset(draft, path);
+        });
+        return ok;
+    }
+
+    // Everything back to the plugin's own defaults, by removing the subtree
+    // rather than by writing the defaults out. A config file full of values
+    // identical to the defaults is a config file that cannot follow them when
+    // they change.
+    function resetAllSettings() {
+        if (!settingsWritable)
+            return false;
+        shell.mutateShellConfig(function (draft) {
+            if (draft.bar)
+                delete draft.bar.island;
+        });
+        return true;
+    }
+
+    // What the user actually wrote, or undefined. The Studio shows the
+    // resolved value but needs this to know whether "reset" means anything.
+    function userSetting(path) {
+        return Settings.userValue(barConfig, path);
+    }
+
+    function setting(path) {
+        return Settings.resolvedValue(config, path);
+    }
+
     // -------------------------------------------------------------- colour
     //
     // The island reads as hardware, so by default it darkens the theme's
@@ -260,6 +318,18 @@ Item {
 
     function setExpanded(screenName, open) {
         expandedScreen = open ? String(screenName) : "";
+    }
+
+    // Which screen, if any, has the Studio open. Same one-at-a-time rule as
+    // the control centre, and for the same reason: it edits one config.
+    property string studioScreen: ""
+
+    function setStudio(screenName, open) {
+        studioScreen = open ? String(screenName) : "";
+        // The control centre and the Studio both want the middle of the
+        // screen; opening one puts the other away.
+        if (open)
+            expandedScreen = "";
     }
 
     // ---------------------------------------------------------- activities
@@ -511,9 +581,56 @@ Item {
         }
 
         function state(): string {
+            if (root.studioScreen !== "")
+                return "studio";
             if (root.expandedScreen !== "")
                 return "expanded";
             return root.activeActivity ? "activity:" + root.activeActivity.type : "collapsed";
+        }
+
+        // Config from the command line, so the island can be reshaped from a
+        // script or a keybinding as well as from the Studio:
+        //
+        //   omarchy-shell island set shape.collapsedHeight 40
+        //   omarchy-shell island set right '["network","clock"]'
+        //   omarchy-shell island unset shape
+        //
+        // The value is JSON, falling back to the bare string — so `set
+        // modules.clock.format HH:mm` does what it looks like it does without
+        // needing quotes inside quotes.
+        function set(path: string, valueJson: string): string {
+            if (!root.settingsWritable)
+                return "unavailable";
+            var value;
+            try {
+                value = JSON.parse(valueJson);
+            } catch (e) {
+                value = valueJson;
+            }
+            return root.setSetting(path, value) ? "ok" : "error";
+        }
+
+        function unset(path: string): string {
+            if (!root.settingsWritable)
+                return "unavailable";
+            return root.resetSetting(path) ? "ok" : "error";
+        }
+
+        function reset(): string {
+            return root.resetAllSettings() ? "ok" : "unavailable";
+        }
+
+        function get(path: string): string {
+            var value = root.setting(path);
+            return value === undefined ? "" : JSON.stringify(value);
+        }
+
+        // Every knob on one surface. Bound to a key it is one press from
+        // anywhere; right-clicking the island opens it too.
+        function studio(): string {
+            var name = root.focusedScreenName();
+            root.setStudio(name, root.studioScreen !== name);
+            return root.studioScreen === "" ? "closed" : "open";
         }
 
         function ping(): string {
@@ -567,6 +684,18 @@ Item {
         model: root.targetScreens
 
         IslandWindow {
+            config: root.config
+            host: root
+        }
+    }
+
+    // The Studio is its own surface rather than another island state: it is
+    // a window you work in, not something the island momentarily became, and
+    // it has to stay put while the thing it is editing reshapes behind it.
+    Variants {
+        model: root.targetScreens
+
+        StudioWindow {
             config: root.config
             host: root
         }

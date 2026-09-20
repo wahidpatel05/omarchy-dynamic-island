@@ -97,6 +97,37 @@ Anything you leave out keeps its default. Arrays replace wholesale — writing
 
 There are ready-made configs in [`examples/`](examples/).
 
+### The Studio
+
+Or do none of that. Right-click the island — or run `omarchy-shell island
+studio` — and every knob is on one surface: which modules sit in which row,
+the shape, the material, the spring, and what is allowed to take the island
+over.
+
+![The Studio](docs/island-studio.png)
+
+There is no apply button and no preview mode, because there is nothing to
+preview. The Studio writes to `bar.island` in your `shell.json` through the
+same channel the shell already uses to hot-reload it, so the bar behind the
+window reshapes as you drag — it is reading the value you just wrote. What
+the Studio writes is exactly what you would have typed, which means hand
+editing and the Studio can be mixed freely and neither surprises the other.
+
+A control that you have changed grows a small reset next to it; *Reset all*
+removes the `bar.island` key outright rather than writing the defaults out,
+so the island keeps following them when they change.
+
+The same settings are reachable from a script:
+
+```bash
+omarchy-shell island set shape.collapsedHeight 40
+omarchy-shell island set right '["network","bluetooth","clock","battery"]'
+omarchy-shell island set modules.clock.format "HH:mm"
+omarchy-shell island get style.capsuleOpacity
+omarchy-shell island unset shape          # back to the default
+omarchy-shell island reset                # all of it
+```
+
 ### Modules
 
 The same vocabulary fills all four rows — `left` and `right` (the capsules),
@@ -420,6 +451,7 @@ With the pointer over the island:
 | Click the logo | Open the agent usage dashboard (right-click: the Omarchy menu) |
 | Click Wi-Fi / Bluetooth / the clock / the battery | Open that panel |
 | Click the control centre glyph | Open the island's control centre |
+| Right-click the island | Open the Studio |
 
 Turn the wheel bindings off with `"behaviour": { "scrollGestures": false }`.
 
@@ -459,13 +491,15 @@ The island exposes an IPC target:
 omarchy-shell island toggle     # open/close the control centre
 omarchy-shell island expand
 omarchy-shell island collapse
+omarchy-shell island studio     # open/close the Studio
 omarchy-shell island state
 ```
 
-Bind it in `~/.config/hypr/bindings.lua`:
+Bind them in `~/.config/hypr/bindings.lua`:
 
 ```lua
 o.bind("SUPER", "I", "omarchy-shell island toggle")
+o.bind("SUPER + SHIFT", "I", "omarchy-shell island studio")
 ```
 
 ---
@@ -508,6 +542,7 @@ Core/               geometry, motion, OSD icon names, the morphing window, the
 Modules/            things that sit in a capsule or in the pill
 Activities/         things that take the island over
 Expanded/           the control centre
+Studio/             the settings surface, and the write path back to shell.json
 Services/           notification, media and brightness sources
 ```
 

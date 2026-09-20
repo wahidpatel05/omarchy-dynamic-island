@@ -266,6 +266,38 @@ var DEFAULTS = {
     }
 };
 
+// Every module the island can draw, with the wording the Studio shows. Kept
+// here rather than in ModuleRow because a name needs a label and a sentence
+// before a human can choose it from a list, and ModuleRow only needs to turn
+// a string into a component.
+var MODULES = [
+    { id: "menu", label: "Logo", hint: "System logo. Opens the agent dashboard" },
+    { id: "clock", label: "Clock", hint: "Time and date. Opens the calendar" },
+    { id: "battery", label: "Battery", hint: "Charge. Hidden on desktops" },
+    { id: "network", label: "Network", hint: "Wi-Fi or ethernet. Opens the network panel" },
+    { id: "bluetooth", label: "Bluetooth", hint: "Radio state. Opens the device list" },
+    { id: "volume", label: "Volume", hint: "Output level. Click to mute" },
+    { id: "controlCentre", label: "Control Centre", hint: "Opens the island's own panel" },
+    { id: "workspaces", label: "Workspaces", hint: "Hyprland workspaces as dots" },
+    { id: "window", label: "Window", hint: "Focused window's title" },
+    { id: "media", label: "Now Playing", hint: "Track title. Hidden with nothing playing" },
+    { id: "albumArt", label: "Album Art", hint: "Cover. Hidden with nothing playing" },
+    { id: "waveform", label: "Waveform", hint: "Visualiser. Hidden with nothing playing" },
+    { id: "mediaControls", label: "Transport", hint: "Previous, play/pause, next" }
+];
+
+function moduleCatalogue() {
+    return clone(MODULES);
+}
+
+function moduleLabel(id) {
+    for (var i = 0; i < MODULES.length; i++) {
+        if (MODULES[i].id === String(id))
+            return MODULES[i].label;
+    }
+    return String(id);
+}
+
 function isPlainObject(value) {
     return !!value && typeof value === "object" && !Array.isArray(value);
 }

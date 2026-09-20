@@ -483,6 +483,15 @@ PanelWindow {
                 host.setExpanded(String(win.modelData.name), !win.expanded);
             }
         }
+
+        // Right-click opens the Studio. The island is the one thing on screen
+        // that is unambiguously *about* the island, so it is where "configure
+        // this" belongs — and it costs nothing, since left-click already
+        // means open the control centre.
+        TapHandler {
+            acceptedButtons: Qt.RightButton
+            onTapped: host.setStudio(String(win.modelData.name), host.studioScreen === "")
+        }
     }
 
     // A single state's content: fades and slides as it takes over the island.
