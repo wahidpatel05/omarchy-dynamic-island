@@ -22,7 +22,8 @@
     },
     "behaviour": {
       "captureOmarchyOsd": true,
-      "scrollGestures": true
+      "scrollGestures": true,
+      "capsules": false
     }
   }
 }

@@ -46,7 +46,11 @@ Item {
     // than below whatever the island momentarily grew to.
 
     readonly property bool vertical: false
-    readonly property int barSize: Math.round((config.shape.collapsedHeight || 32) + (config.shape.topInset || 0))
+    readonly property int barSize: {
+        var resting = config.shape.collapsedHeight || 32;
+        var capsule = config.behaviour.capsules === false ? 0 : ((config.shape.capsuleHeight || 0) > 0 ? config.shape.capsuleHeight : resting);
+        return Math.round(Math.max(resting, capsule) + (config.shape.topInset || 0));
+    }
     readonly property bool barHidden: false
     readonly property string position: barConfig && barConfig.position === "bottom" ? "bottom" : "top"
 
@@ -70,10 +74,12 @@ Item {
     readonly property var layoutConfig: layout
     readonly property var clickTargets: []
 
-    // Popout bookkeeping. The island has no bar widgets to own popouts, but
-    // panels ask before opening, so the answers have to be well-formed.
+    // Popout bookkeeping. Panels ask before opening, and two of them — the
+    // calendar and the weather panel — *write* `centerHoverRevealSuppressed`
+    // while they are open, so it cannot be readonly or they throw on every
+    // open.
     property var activePopout: null
-    readonly property bool centerHoverRevealSuppressed: false
+    property bool centerHoverRevealSuppressed: false
     readonly property bool centerSectionRevealHeld: false
 
     function run(command) {
@@ -84,7 +90,12 @@ Item {
         return Util.shellQuote(value);
     }
     function moduleWidgets(name) {
-        return [];
+        var out = [];
+        for (var i = 0; i < panelSlots.length; i++) {
+            if (panelSlots[i].pluginId === String(name) && panelSlots[i].widget)
+                out.push(panelSlots[i].widget);
+        }
+        return out;
     }
     function showTooltip(target, text) {}
     function hideTooltip(target) {}
@@ -102,8 +113,73 @@ Item {
     function targetBelongsToWindow(target, window) {
         return false;
     }
+    // ------------------------------------------------- hosted bar widgets
+    //
+    // Omarchy routes `shell summon/hide/toggle <id>` for every `bar-widget`
+    // plugin through the active bar, because the panel belongs to a live
+    // instance of the widget and only the bar knows where those are. A bar
+    // that answers `false` here does not merely fail to show the panel
+    // itself — it makes that panel unreachable from keybindings, from the
+    // menu, and from any other plugin that tries to summon it.
+    //
+    // So the island keeps a register of the widgets it has mounted, and
+    // answers the same three questions Omarchy's own bar answers.
+
+    property var panelSlots: []
+
+    function registerPanelSlot(slot) {
+        if (!slot || panelSlots.indexOf(slot) !== -1)
+            return;
+        var next = panelSlots.slice();
+        next.push(slot);
+        panelSlots = next;
+    }
+
+    function unregisterPanelSlot(slot) {
+        panelSlots = panelSlots.filter(function (entry) {
+            return entry !== slot;
+        });
+    }
+
+    // One slot per screen carries each plugin, so "which one" has to be
+    // decided rather than guessed: the focused monitor's, falling back to
+    // whichever exists. Opening the calendar on a monitor you are not
+    // looking at is the failure mode this avoids.
+    function panelSlotFor(id) {
+        var wanted = String(id);
+        var focused = focusedScreenName();
+        var fallback = null;
+        for (var i = 0; i < panelSlots.length; i++) {
+            var slot = panelSlots[i];
+            if (!slot || slot.pluginId !== wanted || !slot.available)
+                continue;
+            if (slot.screenName === focused)
+                return slot;
+            if (!fallback)
+                fallback = slot;
+        }
+        return fallback;
+    }
+
     function summonBarWidget(id) {
-        return false;
+        var slot = panelSlotFor(id);
+        if (!slot)
+            return false;
+        slot.open();
+        return true;
+    }
+
+    function hideBarWidget(id) {
+        var slot = panelSlotFor(id);
+        if (!slot)
+            return false;
+        slot.close();
+        return true;
+    }
+
+    function isBarWidgetOpen(id) {
+        var slot = panelSlotFor(id);
+        return slot !== null && slot.opened === true;
     }
 
     // ------------------------------------------------------------- config
@@ -136,6 +212,41 @@ Item {
         if (config.style.borderColor)
             return config.style.borderColor;
         return Qt.rgba(1, 1, 1, 0.06);
+    }
+
+    // The glass the side capsules are made of.
+    //
+    // Smoked black by default, so the capsules read as the same material as
+    // the island between them rather than as two lighter panels beside it.
+    // `capsuleBackground` takes a colour, or one of the two palette roles
+    // worth naming — "foreground" gives the pale wash that suits a light
+    // theme, where black glass reads as a hole.
+    readonly property color capsuleTint: {
+        var named = String(config.style.capsuleBackground || "").toLowerCase();
+        if (named === "foreground")
+            return Color.foreground;
+        if (named === "background")
+            return Color.background;
+        if (named === "accent")
+            return Color.accent;
+        return Qt.rgba(0, 0, 0, 1);
+    }
+
+    readonly property color capsuleBackground: {
+        var explicit = String(config.style.capsuleBackground || "");
+        // Anything that is not one of the named roles is a literal colour,
+        // and a literal colour carries its own alpha.
+        if (explicit !== "" && ["foreground", "background", "accent"].indexOf(explicit.toLowerCase()) === -1)
+            return explicit;
+        var alpha = config.style.capsuleOpacity === undefined ? 0.55 : Math.max(0, Math.min(1, config.style.capsuleOpacity));
+        var tint = capsuleTint;
+        return Qt.rgba(tint.r, tint.g, tint.b, alpha);
+    }
+
+    readonly property color capsuleBorder: {
+        if (config.style.capsuleBorderColor)
+            return config.style.capsuleBorderColor;
+        return Qt.rgba(1, 1, 1, 0.08);
     }
 
     readonly property color foreground: config.style.foreground ? config.style.foreground : Color.foreground
@@ -412,32 +523,44 @@ Item {
 
     // ------------------------------------------------------------ screens
     //
-    // "focused" follows the pointer/focus between monitors, the way the notch
-    // is only ever on one display. "all" mirrors it everywhere, and an
-    // explicit connector name pins it.
+    // "all" puts an island on every display — the default, because a second
+    // monitor with no bar on it is a worse outcome than two clocks.
+    // "focused" follows focus between monitors, the way a notch is only ever
+    // on one display. A connector name pins it, and a list of them picks a
+    // subset: ["eDP-1", "HDMI-A-1"].
 
-    readonly property string monitorMode: config.behaviour.monitors || "focused"
+    readonly property var monitorMode: config.behaviour.monitors === undefined || config.behaviour.monitors === null || config.behaviour.monitors === "" ? "all" : config.behaviour.monitors
+
+    // The mode as a list of wanted connector names, or null for "every
+    // screen". Resolving the name list separately from the screen lookup is
+    // what lets one code path serve a string, a list, and focus-following.
+    readonly property var wantedNames: {
+        if (Array.isArray(monitorMode))
+            return monitorMode.map(String);
+        var mode = String(monitorMode);
+        if (mode === "all")
+            return null;
+        if (mode === "focused") {
+            var mon = Hyprland.focusedMonitor;
+            return mon ? [String(mon.name)] : [];
+        }
+        return [mode];
+    }
 
     readonly property var targetScreens: {
         var screens = Quickshell.screens;
-        if (monitorMode === "all")
+        var wanted = root.wantedNames;
+        if (wanted === null)
             return screens;
 
-        var wanted = "";
-        if (monitorMode === "focused") {
-            var mon = Hyprland.focusedMonitor;
-            wanted = mon ? String(mon.name) : "";
-        } else {
-            wanted = String(monitorMode);
-        }
-
+        var picked = [];
         for (var i = 0; i < screens.length; i++) {
-            if (String(screens[i].name) === wanted)
-                return [screens[i]];
+            if (wanted.indexOf(String(screens[i].name)) !== -1)
+                picked.push(screens[i]);
         }
         // An unknown or not-yet-resolved name would otherwise leave the user
         // with no bar at all, so fall back to every screen.
-        return screens;
+        return picked.length > 0 ? picked : screens;
     }
 
     Variants {

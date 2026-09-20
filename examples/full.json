@@ -2,12 +2,14 @@
 // would, reveals the rest on hover, and opens into a full control centre.
 {
   "island": {
-    "collapsed": ["albumArt", "clock", "workspaces", "waveform"],
+    "left": ["menu"],
+    "right": ["network", "bluetooth", "volume", "controlCentre", "clock", "battery"],
+    "collapsed": ["albumArt", "media", "window", "waveform"],
     "hover": ["albumArt", "media", "mediaControls", "volume", "battery"],
     "expanded": ["media", "sliders", "notifications"],
     "shape": {
-      "collapsedWidth": 260,
-      "collapsedHeight": 34
+      "collapsedWidth": 220,
+      "collapsedHeight": 30
     },
     "modules": {
       "clock": { "format": "ddd h:mm AP" },

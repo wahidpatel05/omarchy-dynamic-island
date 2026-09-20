@@ -1,9 +1,20 @@
 # Dynamic Island for Omarchy
 
-A macOS-style Dynamic Island that **replaces** the Omarchy bar. A floating pill
-at the top of the screen that grows album art and a waveform when music plays,
-springs open for notifications, takes over the system volume and brightness
-HUDs, and expands into a control centre on click.
+A macOS-style menu bar that **replaces** the Omarchy bar: a glass capsule in
+each corner with the island floating between them. The island grows album art
+and a waveform when music plays, springs open for notifications, takes over the
+system volume and brightness HUDs, and expands into a control centre on click.
+
+```
+ ╭─────╮            ╭────────────────────────╮      ╭──────────────────────────╮
+ │  ✳  │            │  ▣  ♫ Now playing  ▮▮▮ │      │ ▾  ✻  Sun 20 Sep 13:09  ▯│
+ ╰─────╯            ╰────────────────────────╯      ╰──────────────────────────╯
+   logo                    the island                      status corner
+```
+
+All three shapes share a height, a centre line, a corner radius and the same
+smoked black glass, so they read as one bar rather than three widgets. Only the
+middle one changes size.
 
 ![The island at rest](docs/island-rest.png)
 
@@ -13,9 +24,10 @@ HUDs, and expands into a control centre on click.
 
 ![The control centre](docs/island-control-centre.png)
 
-Everything in it is optional. You choose which modules sit in the pill, which
-appear on hover, which events are allowed to take the island over, and what the
-control centre contains.
+Everything in it is optional. You choose which modules sit in each capsule and
+in the pill, which appear on hover, which events are allowed to take the island
+over, and what the control centre contains. Set `"capsules": false` and you are
+back to the bare floating pill.
 
 ---
 
@@ -70,7 +82,9 @@ Everything lives under `bar.island` in `~/.config/omarchy/shell.json`, and
     "id": "wahidpatel.dynamic-island",
     "position": "top",
     "island": {
-      "collapsed": ["albumArt", "clock", "workspaces", "waveform"],
+      "left": ["menu"],
+      "right": ["network", "bluetooth", "clock", "battery"],
+      "collapsed": ["albumArt", "media", "window", "waveform"],
       "hover": ["albumArt", "media", "mediaControls", "volume", "battery"],
       "expanded": ["media", "sliders", "notifications"]
     }
@@ -85,18 +99,25 @@ There are ready-made configs in [`examples/`](examples/).
 
 ### Modules
 
-Used in `collapsed` and `hover`.
+The same vocabulary fills all four rows — `left` and `right` (the capsules),
+`collapsed` (the resting pill) and `hover`. Put a module wherever you want it;
+nothing is tied to one row.
 
 | Name | Shows | Options |
 |---|---|---|
 | `albumArt` | Album art, on the pill's leading edge. Invisible with nothing playing. Click toggles playback | — |
 | `waveform` | Playback visualiser. Moves while playing, settles flat when paused. Click skips | `bars` |
 | `mediaControls` | Previous / play-pause / next | — |
-| `clock` | Time | `format` (Qt date format, default `h:mm AP`) |
+| `clock` | Time and date. Click opens the calendar | `format` (Qt date format), `panel` |
 | `workspaces` | Hyprland workspaces as dots; focused one stretches | `showEmpty`, `max` |
 | `media` | Now-playing title with dancing bars. Hidden when nothing plays. Click toggles, middle-click skips | `maxTitleWidth` |
 | `volume` / `audio` | Output volume glyph. Click mutes | `showPercentage` |
-| `battery` | Charge glyph and percentage. Hidden on desktops | `showPercentage`, `warnBelow` |
+| `battery` | Charge glyph and percentage. Hidden on desktops. Click opens the power panel | `showPercentage`, `warnBelow`, `panel` |
+| `network` | Wi-Fi arcs or an ethernet glyph, dimmed when offline. Click opens the Wi-Fi list | `panel`, `command` |
+| `bluetooth` | Radio state, accented while something is connected. Hidden with no adapter. Click opens the device list | `panel`, `command` |
+| `window` | The focused window's title. Steps aside while something is playing | `maxWidth`, `hideWhenPlaying` |
+| `menu` | The system logo. Click opens the agent usage dashboard, right-click the Omarchy menu | `glyph`, `font`, `icon`, `size`, `panel`, `command`, `rightCommand` |
+| `controlCentre` | Opens the island's control centre, and lights up while it is open | `glyph` |
 
 Per-module options go in `modules`:
 
@@ -106,6 +127,106 @@ Per-module options go in `modules`:
   "battery": { "warnBelow": 15, "showPercentage": false }
 }
 ```
+
+The `menu` module draws Omarchy's own mark, which lives in the `omarchy` font
+rather than in your Nerd Font. Any glyph from any family can take its place —
+or an image file, for a mark that is not in a font at all:
+
+```jsonc
+"modules": {
+  "menu": {
+    "glyph": "\uf179",                       // an Apple logo, from your Nerd Font
+    "font": "",
+    "rightCommand": "xdg-terminal-exec"
+  }
+}
+```
+
+```jsonc
+"modules": {
+  "menu": { "icon": "/usr/share/omarchy/shell/plugins/agents/assets/claude.svg" }
+}
+```
+
+`icon` wins over `glyph` when it loads and falls back to it when it does not,
+so a path that goes stale leaves a working button rather than an empty slot.
+
+### Panels
+
+The Wi-Fi list, the Bluetooth list, the calendar, the power panel and the
+agent usage dashboard are Omarchy's own, not reimplementations. They are
+`bar-widget` plugins — a bar button bundled with the popup it opens — and
+Omarchy routes every `shell summon/hide/toggle` for them through whatever bar
+is active. A bar that does not mount them does not merely fail to show them
+itself: it makes them unreachable from keybindings and from the menu too.
+
+So the island mounts them, invisibly, behind its own glyphs. `panel` on a
+module names the plugin to put there:
+
+```jsonc
+"modules": {
+  "network":   { "panel": "omarchy.network" },
+  "bluetooth": { "panel": "omarchy.bluetooth" },
+  "clock":     { "panel": "omarchy.clock" },
+  "battery":   { "panel": "omarchy.power" },
+  "menu":      { "panel": "omarchy.agents" }
+}
+```
+
+You see the island's glyph; the click lands on Omarchy's widget underneath,
+and the panel opens anchored to it — which is to say, directly under the thing
+you clicked. Set `panel` to `""` and the module falls back to `command`, or to
+doing nothing.
+
+These all work too, and act on the island on the focused monitor:
+
+```bash
+omarchy-shell shell toggle omarchy.clock
+omarchy-shell shell toggle omarchy.agents
+```
+
+### The capsules
+
+```jsonc
+"left":  ["menu"],
+"right": ["network", "bluetooth", "clock", "battery"]
+```
+
+An empty array hides that capsule; `"behaviour": { "capsules": false }` turns
+both off and leaves the bare pill, which is what the island was before.
+
+The capsules are frosted rather than filled: smoked black glass, the same
+material as the island they flank.
+
+```jsonc
+"style": {
+  "capsuleOpacity": 0.55,
+  "capsuleBorderWidth": 0,
+  "capsuleHoverOpacity": 0.12
+}
+```
+
+`capsuleBackground` takes a colour, or one of three palette roles —
+`"foreground"`, `"background"`, `"accent"`. Black glass reads as a hole on a
+light theme, so that is the case for `"foreground"`, which gives a pale wash
+instead. A literal colour carries its own alpha and ignores `capsuleOpacity`.
+
+Real refraction belongs to the compositor, not to the bar. Omarchy ships with
+Hyprland's blur off; turning it on for this layer alone gets you the rest of
+the way:
+
+```lua
+-- ~/.config/hypr/looknfeel.lua
+hl.config({ decoration = { blur = { enabled = true, size = 6, passes = 3 } } })
+hl.layer_rule({ blur = true, match = { namespace = "omarchy-dynamic-island" } })
+hl.layer_rule({ ignore_alpha = 0.05, match = { namespace = "omarchy-dynamic-island" } })
+```
+
+Layer blur needs blur enabled globally — there is no way to turn it on for one
+layer alone — though window blur still only shows up under windows that are
+themselves translucent. The `ignore_alpha` rule matters too: the island's layer
+surface spans the whole width of the screen and is mostly transparent, and
+without it Hyprland blurs the empty parts as well.
 
 ### Activities
 
@@ -149,13 +270,21 @@ in `expanded`, top to bottom:
 
 ```jsonc
 "shape": {
-  "collapsedWidth": 210,
-  "collapsedHeight": 34,
-  "radiusBottom": 17,
-  "radiusTop": 17,
+  "collapsedWidth": 170,
+  "collapsedHeight": 30,
+  "radiusBottom": 9,
+  "radiusTop": 9,
   "fillet": 15,
-  "curvature": 5,
-  "topInset": 9
+  "curvature": 2.6,
+  "topInset": 10,
+
+  "sideMargin": 22,
+  "capsuleHeight": 0,
+  "capsuleRadius": 0,
+  "capsulePaddingX": 11,
+  "capsuleSpacing": 2,
+  "capsuleFontSize": 0,
+  "capsuleGap": 18
 },
 "motion": {
   "response": 0.42,
@@ -163,9 +292,19 @@ in `expanded`, top to bottom:
 }
 ```
 
+`collapsedHeight` sizes the whole bar: the capsules take their height from it
+unless `capsuleHeight` says otherwise, so there is one number to change rather
+than three to keep in sync. The `capsule*` keys that default to `0` are all
+derived — the radius from the height, the type size from the height and your
+theme's body size, whichever is larger.
+
 `curvature` is the superellipse exponent for the corners. `2` gives ordinary
-circular corners; `5` is the continuous-curvature shape Apple uses; past `8` it
-starts to read as a bevel.
+circular corners, which is what macOS uses at this size; `5` is a squircle;
+past `8` it starts to read as a bevel.
+
+Each module in a capsule gets a slot as wide as the capsule is tall, which is
+where the status corner's even pitch comes from — `capsuleSpacing` is the gap
+*between* those slots, so it wants to be small.
 
 `topInset` is the gap between the island and the screen edge. It defaults to
 `9`, so the island **floats**. Set it to `0` to sit flush against the bezel like
@@ -181,22 +320,26 @@ settles dead, `0.72` gives a ~4% pop, below `0.5` visibly bounces.
 
 ```jsonc
 "style": {
-  "darken": 0.55,
+  "darken": 0.0,
   "opacity": 1.0,
-  "accent": ""
+  "accent": "",
+  "capsuleOpacity": 0.55
 }
 ```
 
-Colours follow the active Omarchy theme. `darken` is how much of the theme
-background to keep — the island defaults to darkening toward black so it reads
-as hardware rather than as a panel. Set any colour explicitly to override.
+Text and accents follow the active Omarchy theme; the shapes themselves do
+not. `darken` is how much of the theme's background colour the island keeps —
+`0.0` is pure black, which is what a notch actually looks like, and `1.0`
+matches the theme. Set any colour explicitly to override.
 
 ### Behaviour
 
 ```jsonc
 "behaviour": {
   "reserveSpace": true,
-  "monitors": "focused",
+  "monitors": "all",
+  "activityMonitors": "all",
+  "capsules": true,
   "expandOnHover": true,
   "closeOnLeave": true,
   "scrollGestures": true,
@@ -208,7 +351,26 @@ as hardware rather than as a panel. Set any colour explicitly to override.
 tile below the pill and the island expands over them — a notification never
 reflows your desktop. Set it `false` to make the island a pure overlay.
 
-`monitors` takes `"focused"`, `"all"`, or a connector name like `"DP-1"`.
+### Multiple displays
+
+Every display gets its own island by default, capsules and all, and each one
+keeps its own hover and control-centre state — opening the control centre on
+one screen leaves the others at rest.
+
+```jsonc
+"monitors": "all"                        // every display (default)
+"monitors": "focused"                    // only the display with focus, following it
+"monitors": "DP-1"                       // pinned to one connector
+"monitors": ["eDP-1", "HDMI-A-1"]        // a specific subset
+```
+
+A name that does not match anything falls back to every display, so a typo or
+an unplugged monitor leaves you with a bar rather than without one.
+
+`activityMonitors` decides how far a transient event travels. `"all"` mirrors
+notifications and HUDs onto every island; `"focused"` plays them only on the
+display that has focus, which is worth setting if a volume HUD appearing on
+three screens at once bothers you.
 
 ---
 
@@ -255,6 +417,9 @@ With the pointer over the island:
 | Click during a notification | Dismiss it |
 | Click the album art | Play / pause |
 | Click the waveform | Next track |
+| Click the logo | Open the agent usage dashboard (right-click: the Omarchy menu) |
+| Click Wi-Fi / Bluetooth / the clock / the battery | Open that panel |
+| Click the control centre glyph | Open the island's control centre |
 
 Turn the wheel bindings off with `"behaviour": { "scrollGestures": false }`.
 
@@ -337,8 +502,10 @@ Layout:
 
 ```
 Island.qml          plugin root: config, colours, activity routing, IPC
-Core/               geometry, motion, OSD icon names, the morphing window, shared widgets
-Modules/            things that sit in the pill
+Core/               geometry, motion, OSD icon names, the morphing window, the
+                    glass capsules, the host for Omarchy's own panels, shared
+                    widgets
+Modules/            things that sit in a capsule or in the pill
 Activities/         things that take the island over
 Expanded/           the control centre
 Services/           notification, media and brightness sources
@@ -354,6 +521,15 @@ Two things worth knowing before you touch the animation code:
   derived from the width you gave it, so it closes a binding loop — and with a
   `Behavior` on the far end, that loop recurses until the stack gives out. Use
   `TextMetrics` to measure instead.
+- **Never size a `Loader` from its own `implicitWidth`.** `QQuickLoader`
+  recomputes that from its item every time it is resized, so
+  `width: Math.max(implicitWidth, …)` re-enters and Qt reports a binding loop.
+  `ModuleRow` wraps each Loader in a plain Item and sizes that instead.
+- **Never read a hosted item's `visible` to decide whether to show it.**
+  Reading `visible` gives the *effective* value, which already includes the
+  parent's — so a parent whose visibility depends on its child's latches both
+  to false and never recovers. Modules declare presence through `shown`, which
+  is an ordinary property, for exactly this reason.
 
 ## License
 

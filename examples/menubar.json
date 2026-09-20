@@ -1,0 +1,43 @@
+// The default: a macOS-style menu bar in smoked black glass. A capsule in each
+// corner and the island floating between them.
+//
+// The three shapes share a height, a centre line and a corner radius, which is
+// what makes them read as one bar rather than as three widgets. Change
+// `collapsedHeight` and the capsules follow it; `capsuleHeight` only exists for
+// when you want them to disagree on purpose.
+{
+  "island": {
+    "left": ["menu"],
+    "right": ["network", "bluetooth", "clock", "battery"],
+    "collapsed": ["albumArt", "media", "window", "waveform"],
+    "hover": ["albumArt", "media", "mediaControls", "volume", "battery"],
+    "expanded": ["media", "sliders", "notifications"],
+    "shape": {
+      "collapsedHeight": 30,
+      "collapsedWidth": 170,
+      "radiusTop": 9,
+      "radiusBottom": 9,
+      "curvature": 2.6,
+      "topInset": 10,
+      "sideMargin": 22
+    },
+    "modules": {
+      // `panel` mounts one of Omarchy's own bar-widget plugins behind the
+      // module, so the click opens the real Wi-Fi list, calendar, or agent
+      // dashboard rather than a reimplementation of it.
+      "menu": { "panel": "omarchy.agents" },
+      "network": { "panel": "omarchy.network" },
+      "bluetooth": { "panel": "omarchy.bluetooth" },
+      "clock": { "format": "ddd d MMM  HH:mm", "panel": "omarchy.clock" },
+      "battery": { "showPercentage": false, "panel": "omarchy.power" },
+      "window": { "maxWidth": 220, "hideWhenPlaying": true }
+    },
+    "behaviour": {
+      "monitors": "all"
+    },
+    "style": {
+      "darken": 0.0,
+      "capsuleOpacity": 0.55
+    }
+  }
+}

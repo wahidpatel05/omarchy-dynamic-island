@@ -17,25 +17,26 @@ var DEFAULTS = {
     shape: {
         // The resting pill. Sized to sit comfortably under a laptop bezel
         // without looking like a bar that forgot to be full width.
-        collapsedWidth: 210,
-        collapsedHeight: 34,
-        // Corner radii. At rest these match half the height, so the pill is a
-        // true capsule; taller states round off at a fixed maximum instead of
-        // staying proportionally round.
-        radiusBottom: 17,
-        radiusTop: 17,
+        collapsedWidth: 170,
+        collapsedHeight: 30,
+        // Corner radii. A radius of roughly 0.3x the height is the proportion
+        // macOS uses for the notch and for the glass capsules beside it — a
+        // rounded rectangle rather than a true capsule. Raise both to half the
+        // height for a full capsule instead.
+        radiusBottom: 9,
+        radiusTop: 9,
         // Concave shoulders blending the island into the screen edge. Only
         // meaningful when the island is flush against it, so a floating island
         // ignores this.
         fillet: 15,
-        // Superellipse exponent. 2 is a plain circular corner; ~5 matches the
-        // continuous curvature Apple uses. Above ~8 it reads as a bevel.
-        curvature: 5,
+        // Superellipse exponent. 2 is a plain circular corner; ~5 gives the
+        // continuous curvature of a squircle. Above ~8 it reads as a bevel.
+        curvature: 2.6,
         // Gap between the island and the screen edge. Non-zero detaches the
         // island into a floating pill, which also disables the shoulders —
         // there is no longer an edge to blend into. Set to 0 to sit flush
         // against the bezel like a MacBook notch.
-        topInset: 9,
+        topInset: 10,
         // How much wider the island grows on hover.
         hoverPadding: 22,
         // Ceiling for expanded states, so a pathological notification cannot
@@ -43,7 +44,36 @@ var DEFAULTS = {
         maxWidth: 680,
         maxHeight: 560,
         paddingX: 14,
-        paddingY: 0
+        paddingY: 0,
+
+        // ------------------------------------------------ menu bar capsules
+        //
+        // The two glass capsules flanking the island. They share the island's
+        // corner language and vertical centre line, so the three shapes read
+        // as one bar rather than three unrelated widgets.
+
+        // Distance from the screen edge to a capsule's outer edge.
+        sideMargin: 22,
+        // 0 follows `collapsedHeight`, so all three shapes stay the same
+        // height without having to be kept in sync by hand.
+        capsuleHeight: 0,
+        // 0 derives the radius from the capsule height, matching the island.
+        capsuleRadius: 0,
+        capsulePaddingX: 11,
+        // Type size inside the capsules. 0 derives it from the capsule
+        // height, which is what keeps the status corner legible when the bar
+        // is scaled up past what the theme's own font size was chosen for —
+        // a 12px clock in a 42px capsule reads as a label that lost its
+        // widget. Never goes below the theme's body size.
+        capsuleFontSize: 0,
+        // Gap between modules inside a capsule. Small on purpose: each module
+        // already sits in a slot as wide as the capsule is tall, so the pitch
+        // comes from the slots rather than from the gaps between them.
+        capsuleSpacing: 2,
+        // Smallest gap tolerated between a capsule and the island. Once the
+        // island grows wide enough to breach it the capsules retract, so an
+        // expanded island never collides with them.
+        capsuleGap: 18
     },
 
     motion: {
@@ -70,7 +100,13 @@ var DEFAULTS = {
     // at all unless something is playing, so the pill quietly grows a cover on
     // one side and a visualiser on the other when music starts, then shrinks
     // back when it stops. Nothing has to switch them on.
-    collapsed: ["albumArt", "clock", "workspaces", "waveform"],
+    collapsed: ["albumArt", "media", "window", "waveform"],
+
+    // The glass capsule to the left of the island. Empty hides it entirely.
+    left: ["menu"],
+
+    // The glass capsule to the right of the island — the status corner.
+    right: ["network", "bluetooth", "clock", "battery"],
 
     // Revealed on hover, in place of the collapsed set.
     hover: ["albumArt", "media", "mediaControls", "volume", "battery"],
@@ -108,14 +144,45 @@ var DEFAULTS = {
 
     // Per-module options, keyed by the names used in the arrays above.
     modules: {
-        clock: { format: "h:mm AP" },
+        // `panel` names an Omarchy bar-widget plugin to open on click. The
+        // island mounts it invisibly behind the module and the real panel
+        // opens under the glyph you clicked — see Core/PanelSlot.qml. Set it
+        // to "" for a module that only reports.
+        clock: { format: "ddd d MMM  HH:mm", panel: "omarchy.clock" },
         workspaces: { style: "dots", showEmpty: true, max: 10 },
         media: { scrollTitle: true, maxTitleWidth: 180 },
-        battery: { showPercentage: true, warnBelow: 20 },
+        battery: { showPercentage: false, warnBelow: 20, panel: "omarchy.power" },
         audio: {},
-        network: {},
+        // Wi-Fi / ethernet state. Clicking opens Omarchy's network panel;
+        // `command` is the fallback for when that plugin is disabled.
+        network: { panel: "omarchy.network", command: "omarchy-menu toggle setup.network" },
+        bluetooth: { panel: "omarchy.bluetooth", command: "" },
+        // The focused window's title. Steps aside while something is
+        // actually playing, so the island reads as "now playing, or else
+        // what you are looking at".
+        window: { maxWidth: 220, hideWhenPlaying: true },
+        // The system logo. Defaults to Omarchy's own mark, in the `omarchy`
+        // font that ships with it — set `glyph` and `font` for anything else
+        // (an Apple logo, say: { "glyph": "\uf179", "font": "" }).
+        menu: {
+            glyph: "\ue900",
+            font: "omarchy",
+            // An image file drawn in place of the glyph, for a mark that does
+            // not live in a font. Falls back to the glyph if it will not load.
+            icon: "",
+            size: 0,
+            // The logo opens the agent dashboard — Claude's context and
+            // weekly usage windows — rather than the Omarchy menu, which is
+            // one right-click or one keybinding away. `panel: ""` puts
+            // `command` back in charge.
+            panel: "omarchy.agents",
+            command: "omarchy-menu toggle root",
+            rightCommand: "omarchy-menu toggle root"
+        },
+        // Opens the island's own control centre, the way the Control Centre
+        // button does on the macOS menu bar.
+        controlCentre: { glyph: "\uf1de" },
         tray: {},
-        window: { maxWidth: 200 },
         albumArt: {},
         waveform: { bars: 4 }
     },
@@ -125,9 +192,22 @@ var DEFAULTS = {
         // Reserve screen space so windows tile below the island, exactly as a
         // bar would. Turning this off makes the island a pure overlay.
         reserveSpace: true,
-        // Which monitor gets the island. "focused", "all", or a connector name
-        // such as "DP-1".
-        monitors: "focused",
+        // Which monitors get an island. "all", "focused", a single connector
+        // name such as "DP-1", or a list of them: ["eDP-1", "HDMI-A-1"].
+        //
+        // "all" is the default because an island that follows focus leaves
+        // whichever screen you are *not* looking at with no bar at all, and
+        // the clock and status corner are exactly what you glance at on a
+        // second display.
+        monitors: "all",
+        // Where transient activities — notifications, HUDs, track changes —
+        // take the island over. "all" mirrors them onto every island;
+        // "focused" plays them only on the monitor that currently has focus,
+        // so a volume HUD does not flash on all three screens at once.
+        activityMonitors: "all",
+        // Draw the glass capsules flanking the island. False leaves the bare
+        // pill on its own, the way earlier versions looked.
+        capsules: true,
         expandOnHover: true,
         expandOnClick: true,
         // Scrolling over the island adjusts volume; holding Shift while
@@ -155,14 +235,34 @@ var DEFAULTS = {
         foreground: "",
         accent: "",
         // Island backgrounds are usually near-black regardless of theme, the
-        // way a real bezel is. 1.0 uses the theme's own background colour.
-        darken: 0.55,
+        // way a real bezel is. 1.0 uses the theme's own background colour;
+        // 0.0 is pure black, which is what a notch actually looks like.
+        darken: 0.0,
         opacity: 1.0,
         borderWidth: 0,
         borderColor: "",
         shadow: true,
         shadowOpacity: 0.45,
-        shadowBlur: 24
+        shadowBlur: 24,
+
+        // ------------------------------------------------------------ glass
+        //
+        // The side capsules are frosted rather than filled: smoked black
+        // glass over whatever is behind them, matching the island they flank.
+        // Set `capsuleBackground` to any colour to override the black, or
+        // "foreground" to go back to a light wash that follows the theme.
+        //
+        // Real refraction is the compositor's job, not ours — see the
+        // Hyprland layer-blur note in the README. Without it this is still
+        // smoked glass, just not a lens.
+        capsuleBackground: "",
+        capsuleOpacity: 0.55,
+        capsuleBorderWidth: 0,
+        capsuleBorderColor: "",
+        // Extra wash under a hovered module inside a capsule. Drawn in the
+        // foreground colour, so it lightens the glass rather than darkening
+        // it further.
+        capsuleHoverOpacity: 0.12
     }
 };
 
@@ -200,6 +300,8 @@ function resolve(raw) {
         shape: mergeSection(DEFAULTS.shape, user.shape, false),
         motion: mergeSection(DEFAULTS.motion, user.motion, false),
         collapsed: Array.isArray(user.collapsed) ? clone(user.collapsed) : clone(DEFAULTS.collapsed),
+        left: Array.isArray(user.left) ? clone(user.left) : clone(DEFAULTS.left),
+        right: Array.isArray(user.right) ? clone(user.right) : clone(DEFAULTS.right),
         hover: Array.isArray(user.hover) ? clone(user.hover) : clone(DEFAULTS.hover),
         expanded: Array.isArray(user.expanded) ? clone(user.expanded) : clone(DEFAULTS.expanded),
         activities: mergeSection(DEFAULTS.activities, user.activities, true),

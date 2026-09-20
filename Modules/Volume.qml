@@ -13,6 +13,9 @@ Item {
     property var options: ({})
     property color foreground: "white"
     property color accent: "white"
+    // 0 follows the theme; see Clock.
+    property real fontSize: 0
+    readonly property real glyphSize: fontSize > 0 ? Math.round(fontSize * 1.17) : Style.font.icon
 
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property real volume: sink && sink.audio ? sink.audio.volume : 0
@@ -39,7 +42,10 @@ Item {
 
     Row {
         id: row
-        anchors.verticalCenter: parent.verticalCenter
+        // Centred rather than left-anchored: a glass capsule hands every
+        // module a slot as wide as the row is tall, and content pinned to the
+        // left edge of that slot would break the corner's pitch.
+        anchors.centerIn: parent
         spacing: Style.space(5)
 
         Text {
@@ -47,7 +53,7 @@ Item {
             text: root.glyph
             color: root.muted ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.45) : root.foreground
             font.family: Style.font.family
-            font.pixelSize: Style.font.icon
+            font.pixelSize: root.glyphSize
             textFormat: Text.PlainText
         }
 
@@ -57,7 +63,7 @@ Item {
             text: root.percent + "%"
             color: root.foreground
             font.family: Style.font.family
-            font.pixelSize: Style.font.body
+            font.pixelSize: root.fontSize > 0 ? root.fontSize : Style.font.body
             textFormat: Text.PlainText
         }
     }

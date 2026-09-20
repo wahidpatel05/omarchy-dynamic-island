@@ -4,11 +4,16 @@
 // Merge the "island" object into bar.island in ~/.config/omarchy/shell.json.
 {
   "island": {
+    "left": [],
+    "right": [],
     "collapsed": [],
     "hover": [],
     "expanded": ["media"],
     "shape": {
       "collapsedWidth": 150
+    },
+    "behaviour": {
+      "capsules": false
     }
   }
 }

@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "wahidpatel.dynamic-island",
   "name": "Dynamic Island",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "Wahid Patel",
   "license": "MIT",
-  "description": "A macOS-style Dynamic Island for Omarchy. Replaces the bar with a notch-shaped pill that springs open for notifications, media, volume, and power, and expands into a control centre on click.",
+  "description": "A macOS-style menu bar for Omarchy. Replaces the bar with a glass capsule in each corner and a notch-shaped pill between them, which springs open for notifications, media, volume, and power, and expands into a control centre on click. Draws on every display.",
   "kinds": [
     "bar"
   ],
