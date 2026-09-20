@@ -120,13 +120,18 @@ so the island keeps following them when they change.
 The same settings are reachable from a script:
 
 ```bash
-omarchy-shell island set shape.collapsedHeight 40
-omarchy-shell island set right '["network","bluetooth","clock","battery"]'
-omarchy-shell island set modules.clock.format "HH:mm"
+omarchy-shell island set '{"shape.collapsedHeight":40}'
+omarchy-shell island set '{"right":["network","bluetooth","clock","battery"]}'
+omarchy-shell island set '{"shape.topInset":8,"style.darken":0.2}'
 omarchy-shell island get style.capsuleOpacity
 omarchy-shell island unset shape          # back to the default
 omarchy-shell island reset                # all of it
 ```
+
+`set` takes one JSON object of dotted path to value rather than two
+arguments, because `qs ipc call` splits its argument list on commas — a
+two-argument form could never be handed `["a","b"]`. Batching several keys
+into one write falls out of that for free.
 
 ### Modules
 
@@ -138,6 +143,8 @@ nothing is tied to one row.
 |---|---|---|
 | `albumArt` | Album art, on the pill's leading edge. Invisible with nothing playing. Click toggles playback | — |
 | `waveform` | Playback visualiser. Moves while playing, settles flat when paused. Click skips | `bars` |
+| `liveIcon` | A running task's mark, on the leading edge. Hidden when idle | `glyph` |
+| `liveRing` | A running task's progress ring, on the trailing edge. Middle-click drops it | `size` |
 | `mediaControls` | Previous / play-pause / next | — |
 | `clock` | Time and date. Click opens the calendar | `format` (Qt date format), `panel` |
 | `workspaces` | Hyprland workspaces as dots; focused one stretches | `showEmpty`, `max` |
@@ -270,6 +277,7 @@ arrive at once.
 | `brightness` | 60 | Backlight changes |
 | `notification` | 50 | A notification arrives |
 | `power` | 40 | Charger plugged or unplugged, or battery runs low |
+| `live` | 35 | A long-running task starts or ends — see below |
 | `media` | 20 | The track changes while playing |
 
 Volume and brightness sit above notifications on purpose: you just pressed a
@@ -287,6 +295,67 @@ key and want to see the result, so the HUD preempts rather than queues.
 
 Hovering the island pauses a notification's dismissal countdown. Clicking it
 dismisses it.
+
+### Live activities
+
+Everything above is an event that *happened*. A live activity is something
+that is still happening — a build, a sync, a long copy — and it is the one
+thing a notification cannot express.
+
+```bash
+omarchy-shell island activity '{"id":"build","label":"Building","glyph":"","value":0.1}'
+omarchy-shell island activity '{"id":"build","value":0.7}'
+omarchy-shell island activity '{"id":"build","done":true}'
+```
+
+![A live activity](docs/island-live.png)
+
+The shape of the behaviour is the point. A task **announces** itself when it
+starts and again when it ends — the island opens into a card for a couple of
+seconds — and in between it **compacts** to a glyph on the island's leading
+edge and a ring on its trailing edge, sitting alongside whatever else the
+pill is carrying. Progress updates never reopen the card, which is what stops
+a chatty script from holding the island open for an hour.
+
+`id` is the only required field; everything else carries over from the
+previous update for that id, so a progress loop can send just the number.
+
+| Field | Means |
+|---|---|
+| `id` | Which task this is. Required |
+| `label` | The name shown on the card |
+| `detail` | Second line. Defaults to a percentage |
+| `glyph` | Leading mark. Falls back to a generic one |
+| `value` | `0`–`1`, or `0`–`100`, or a count alongside `max` |
+| `max` | Denominator for `value`, for counting things |
+| `accent` | Ring colour. Defaults to the theme accent |
+| `timeout` | Drop the task after this many ms if it goes quiet |
+| `done` | End it. Add `"ok": false` to end it as a failure |
+
+A task with no `value` is **indeterminate** — the ring becomes a short arc
+going round at a constant rate, which is the honest way to say "running, and
+I cannot tell you how far". A bar creeping toward an end it does not know is
+a lie told slowly.
+
+Counting works without doing the division yourself:
+
+```bash
+for f in *.raw; do
+  omarchy-shell -q island activity "{\"id\":\"convert\",\"label\":\"Converting\",\"value\":$i,\"max\":$n}"
+done
+omarchy-shell -q island activity '{"id":"convert","done":true}'
+```
+
+A task stays until it says it is done, so a script that dies mid-run leaves a
+ring behind. Pass `timeout` for anything long and unattended, middle-click the
+ring to drop one by hand, or:
+
+```bash
+omarchy-shell island activityDone build     # end it as a success
+omarchy-shell island activityDrop build     # remove it without an announcement
+omarchy-shell island activityClear          # all of them
+omarchy-shell island activityList           # what the island is carrying
+```
 
 ### Control centre
 

@@ -435,6 +435,12 @@ PanelWindow {
                             path: "activities.power.enabled"
                             label: "Charger and low battery"
                         }
+                        SwitchRow {
+                            host: win.host
+                            path: "activities.live.enabled"
+                            label: "Live activities"
+                            hint: "Long-running tasks pushed in over IPC"
+                        }
                     }
 
                     Item {

@@ -363,6 +363,8 @@ Item {
             return hudCardComponent;
         case "power":
             return powerCardComponent;
+        case "live":
+            return liveCardComponent;
         }
         return null;
     }
@@ -404,6 +406,11 @@ Item {
     Component {
         id: powerCardComponent
         PowerCard {}
+    }
+
+    Component {
+        id: liveCardComponent
+        LiveCard {}
     }
 
     property Component expandedComponent: controlCentreComponent
@@ -454,6 +461,17 @@ Item {
 
     MediaSource {
         id: media
+        config: root.config
+        activities: activities
+    }
+
+    // Long-running tasks. Exposed on the root because the compact ring and
+    // icon read it straight from here — the card is only an announcement,
+    // and the registry has to outlive it.
+    readonly property var liveSource: live
+
+    LiveActivitySource {
+        id: live
         config: root.config
         activities: activities
     }
@@ -591,23 +609,35 @@ Item {
         // Config from the command line, so the island can be reshaped from a
         // script or a keybinding as well as from the Studio:
         //
-        //   omarchy-shell island set shape.collapsedHeight 40
-        //   omarchy-shell island set right '["network","clock"]'
-        //   omarchy-shell island unset shape
+        //   omarchy-shell island set '{"shape.collapsedHeight":40}'
+        //   omarchy-shell island set '{"right":["network","bluetooth","clock"]}'
+        //   omarchy-shell island set '{"shape.topInset":8,"style.darken":0.2}'
         //
-        // The value is JSON, falling back to the bare string — so `set
-        // modules.clock.format HH:mm` does what it looks like it does without
-        // needing quotes inside quotes.
-        function set(path: string, valueJson: string): string {
+        // One JSON object of dotted path to value, rather than a path and a
+        // value as two arguments. That is not a style choice: `qs ipc call`
+        // splits its argument list on commas, so a multi-argument function
+        // cannot be handed JSON containing one — `set right '["a","b"]'`
+        // arrives as three arguments and is rejected. A single-argument
+        // function gets the string back intact, which also makes batching
+        // several keys into one write fall out for free.
+        function set(assignmentsJson: string): string {
             if (!root.settingsWritable)
                 return "unavailable";
-            var value;
+            var assignments;
             try {
-                value = JSON.parse(valueJson);
+                assignments = JSON.parse(assignmentsJson || "");
             } catch (e) {
-                value = valueJson;
+                return "error";
             }
-            return root.setSetting(path, value) ? "ok" : "error";
+            if (!assignments || typeof assignments !== "object" || Array.isArray(assignments))
+                return "error";
+
+            var wrote = 0;
+            for (var path in assignments) {
+                if (root.setSetting(path, assignments[path]))
+                    wrote++;
+            }
+            return wrote > 0 ? "ok" : "error";
         }
 
         function unset(path: string): string {
@@ -623,6 +653,46 @@ Item {
         function get(path: string): string {
             var value = root.setting(path);
             return value === undefined ? "" : JSON.stringify(value);
+        }
+
+        // Live activities — the island carrying something that is still
+        // happening, rather than reporting something that did.
+        //
+        //   omarchy-shell island activity '{"id":"build","label":"Building","glyph":"","value":0.4}'
+        //   omarchy-shell island activity '{"id":"build","value":37,"max":210}'
+        //   omarchy-shell island activity '{"id":"build","done":true}'
+        //   omarchy-shell island activity '{"id":"build","done":true,"ok":false}'
+        //
+        // `id` is the only required field. Everything else carries over from
+        // the previous update for that id, so a progress loop can send just
+        // the number.
+        function activity(payloadJson: string): string {
+            var payload;
+            try {
+                payload = JSON.parse(payloadJson || "{}");
+            } catch (e) {
+                return "error";
+            }
+            if (!payload || typeof payload !== "object" || !payload.id)
+                return "error";
+            return live.upsert(payload) ? "ok" : "ignored";
+        }
+
+        function activityDone(id: string): string {
+            return live.finish(id, { ok: true }) ? "ok" : "unknown";
+        }
+
+        function activityDrop(id: string): string {
+            return live.remove(id) ? "ok" : "unknown";
+        }
+
+        function activityClear(): string {
+            live.clear();
+            return "ok";
+        }
+
+        function activityList(): string {
+            return JSON.stringify(live.snapshot());
         }
 
         // Every knob on one surface. Bound to a key it is one press from

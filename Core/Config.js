@@ -100,7 +100,7 @@ var DEFAULTS = {
     // at all unless something is playing, so the pill quietly grows a cover on
     // one side and a visualiser on the other when music starts, then shrinks
     // back when it stops. Nothing has to switch them on.
-    collapsed: ["albumArt", "media", "window", "waveform"],
+    collapsed: ["liveIcon", "albumArt", "media", "window", "waveform", "liveRing"],
 
     // The glass capsule to the left of the island. Empty hides it entirely.
     left: ["menu"],
@@ -139,7 +139,18 @@ var DEFAULTS = {
         volume: { enabled: true, duration: 1500 },
         brightness: { enabled: true, duration: 1500 },
         media: { enabled: true, duration: 2600 },
-        power: { enabled: true, duration: 3000 }
+        power: { enabled: true, duration: 3000 },
+        // Long-running tasks pushed in over IPC. Unlike everything else
+        // here, a live activity is not an event that happened — it is a
+        // thing that is still happening, so it announces itself for
+        // `announce` milliseconds at each end and compacts to a glyph and a
+        // ring on the resting pill in between.
+        //
+        //   omarchy-shell island activity '{"id":"build","label":"Building","value":0.4}'
+        //   omarchy-shell island activity '{"id":"build","done":true}'
+        //
+        // `hold` is how long a finished task stays up before it is dropped.
+        live: { enabled: true, announce: 2200, hold: 1600, priority: 35 }
     },
 
     // Per-module options, keyed by the names used in the arrays above.
@@ -184,7 +195,11 @@ var DEFAULTS = {
         controlCentre: { glyph: "\uf1de" },
         tray: {},
         albumArt: {},
-        waveform: { bars: 4 }
+        waveform: { bars: 4 },
+        // The compact form of a live activity. `glyph` is the fallback mark
+        // for a task that did not send one.
+        liveIcon: { glyph: "󰄉" },
+        liveRing: { size: 0 }
     },
 
     // Behaviour
@@ -283,7 +298,9 @@ var MODULES = [
     { id: "media", label: "Now Playing", hint: "Track title. Hidden with nothing playing" },
     { id: "albumArt", label: "Album Art", hint: "Cover. Hidden with nothing playing" },
     { id: "waveform", label: "Waveform", hint: "Visualiser. Hidden with nothing playing" },
-    { id: "mediaControls", label: "Transport", hint: "Previous, play/pause, next" }
+    { id: "mediaControls", label: "Transport", hint: "Previous, play/pause, next" },
+    { id: "liveIcon", label: "Task Icon", hint: "Running task's mark. Hidden when idle" },
+    { id: "liveRing", label: "Task Ring", hint: "Running task's progress. Hidden when idle" }
 ];
 
 function moduleCatalogue() {
