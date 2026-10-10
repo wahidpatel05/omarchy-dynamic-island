@@ -161,7 +161,22 @@ var DEFAULTS = {
         // to "" for a module that only reports.
         clock: { format: "ddd d MMM  HH:mm", panel: "omarchy.clock" },
         workspaces: { style: "dots", showEmpty: true, max: 10 },
-        media: { scrollTitle: true, maxTitleWidth: 180 },
+        // Now playing, as the pill shows it: dancing bars, a running clock,
+        // and the player's own mark. `showTitle` puts the track title back on
+        // the resting pill — it is off because the island announces the title
+        // in full on every track change, and a title is the one field that
+        // grows without limit under a pill that has to stay a pill. It comes
+        // back on its own for a player the island can neither recognise nor
+        // time, so the pill never reduces to a row of bars saying nothing.
+        //
+        // `sourceTint` is what makes Spotify green and YouTube red: the bars
+        // and the mark take the player's brand colour instead of the theme's
+        // accent. Off keeps the island monochrome. Players the island does
+        // not recognise keep the accent either way, and show no mark.
+        //
+        // These also drive the track-change takeover, so the clock and the
+        // mark cannot disagree between the pill and the card.
+        media: { scrollTitle: true, maxTitleWidth: 180, showTitle: false, showElapsed: true, showSource: true, sourceTint: true },
         battery: { showPercentage: false, warnBelow: 20, panel: "omarchy.power" },
         audio: {},
         // Wi-Fi / ethernet state. Clicking opens Omarchy's network panel;
@@ -210,7 +225,9 @@ var DEFAULTS = {
         liveRing: { size: 0 },
         // The mark a missed notification leaves on the resting pill. Turn
         // the whole behaviour off with `activities.notification.residue`.
-        notificationDot: { size: 0 }
+        notificationDot: { size: 0 },
+        // The crescent shown while focus holds notifications back.
+        focusDot: { color: "" }
     },
 
     // Behaviour
@@ -249,6 +266,11 @@ var DEFAULTS = {
         // registration order, so turning this on while Omarchy's OSD is still
         // enabled is a coin flip rather than an upgrade.
         captureOmarchyOsd: false,
+        // Open the control centre as a separate sheet *below* the island
+        // (Expanded/ControlSheet.qml: tiles, sliders, Wi-Fi and Bluetooth
+        // lists) instead of growing the island into it. Pair it with an empty
+        // `right` and `statusDots` in `collapsed` for the one-island layout.
+        controlSheet: false,
         // Close the control centre when the pointer leaves it.
         closeOnLeave: true,
         hoverDelay: 90
@@ -307,7 +329,7 @@ var MODULES = [
     { id: "workspaces", label: "Workspaces", hint: "Hyprland workspaces as dots" },
     { id: "window", label: "Window", hint: "Focused window's title" },
     { id: "label", label: "Label", hint: "A word of your own. Steps aside while music plays" },
-    { id: "media", label: "Now Playing", hint: "Track title. Hidden with nothing playing" },
+    { id: "media", label: "Now Playing", hint: "Bars, elapsed time and the player's mark. Hidden with nothing playing" },
     { id: "albumArt", label: "Album Art", hint: "Cover. Hidden with nothing playing" },
     { id: "waveform", label: "Waveform", hint: "Visualiser. Hidden with nothing playing" },
     { id: "mediaControls", label: "Transport", hint: "Previous, play/pause, next" },

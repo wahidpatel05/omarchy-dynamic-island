@@ -406,6 +406,36 @@ PanelWindow {
                     }
 
                     Section {
+                        title: "Now playing"
+                        hint: "What the pill says while music is on, and what the track-change takeover shows. The title is off by default: the island announces it in full on every change."
+                        foreground: win.foreground
+
+                        SwitchRow {
+                            host: win.host
+                            path: "modules.media.showElapsed"
+                            label: "Elapsed time"
+                        }
+                        SwitchRow {
+                            host: win.host
+                            path: "modules.media.showSource"
+                            label: "Player's mark"
+                            hint: "Spotify, YouTube, Firefox and friends"
+                        }
+                        SwitchRow {
+                            host: win.host
+                            path: "modules.media.sourceTint"
+                            label: "Brand colour"
+                            hint: "Tints the bars and the mark. Off keeps the theme's accent"
+                        }
+                        SwitchRow {
+                            host: win.host
+                            path: "modules.media.showTitle"
+                            label: "Track title on the pill"
+                            fallback: false
+                        }
+                    }
+
+                    Section {
                         title: "Takeovers"
                         hint: "Transient events that own the island. Volume and brightness outrank notifications on purpose: you just pressed a key and want to see the result."
                         foreground: win.foreground

@@ -8,17 +8,24 @@ import qs.Commons
 // nobody can tell the difference between real levels and plausible ones. Each
 // bar runs its own loop at its own period and phase, which is what stops the
 // group from visibly pulsing in unison.
+//
+// Bars stand on a common floor rather than centring on one line. It is the
+// difference between an equaliser and a pulse: levels grow up from a baseline,
+// and a bar that shrinks from both ends at once reads as breathing instead of
+// as sound. The gaps are wide relative to the bars for the same reason — three
+// ticks with air between them stay legible at 11px, where three touching bars
+// blur into one block.
 Row {
     id: root
 
     property color color: "white"
     property bool active: true
-    property int bars: 4
+    property int bars: 3
     property real barWidth: Math.max(2, Style.space(2))
     property real maxHeight: Style.space(14)
     property real minScale: 0.28
 
-    spacing: Math.max(2, Style.space(2))
+    spacing: Math.max(2, Math.round(barWidth * 1.6))
     height: maxHeight
 
     Repeater {
@@ -35,7 +42,7 @@ Row {
             width: root.barWidth
             radius: width / 2
             color: root.color
-            anchors.verticalCenter: parent.verticalCenter
+            anchors.bottom: parent.bottom
 
             height: root.maxHeight * root.minScale
 

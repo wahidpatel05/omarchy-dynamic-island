@@ -523,6 +523,19 @@ Item {
         ControlCenter {}
     }
 
+    // The control sheet that hangs below the island when
+    // `behaviour.controlSheet` is on.
+    // Page asked for over IPC; every open sheet follows the serial.
+    property string sheetRequest: "main"
+    property int sheetRequestSerial: 0
+
+    property Component sheetComponent: controlSheetComponent
+
+    Component {
+        id: controlSheetComponent
+        ControlSheet {}
+    }
+
     // ------------------------------------------------------------- sources
 
     readonly property var notificationSource: notifications
@@ -566,6 +579,14 @@ Item {
         id: media
         config: root.config
         activities: activities
+    }
+
+    // The paired phone, read only while the control sheet is open.
+    readonly property var phoneSource: phone
+
+    PhoneSource {
+        id: phone
+        active: root.expandedScreen !== ""
     }
 
     // Long-running tasks. Exposed on the root because the compact ring and
@@ -699,6 +720,34 @@ Item {
         function collapse(): string {
             root.setExpanded("", false);
             return "collapsed";
+        }
+
+        // Open the control sheet on a given page: "main", "wifi", "bt" or
+        // "phone".
+        //   omarchy-shell island sheet wifi
+        function sheet(page: string): string {
+            var p = page === "wifi" || page === "bt" || page === "phone" ? page : "main";
+            root.sheetRequest = p;
+            root.sheetRequestSerial += 1;
+            root.setExpanded(root.focusedScreenName(), true);
+            return p;
+        }
+
+        // Do-not-disturb for the island's notifications.
+        //   omarchy-shell island focus toggle | on | off | <minutes>
+        function focus(mode: string): string {
+            var n = notifications;
+            var m = String(mode || "toggle");
+            var mins = parseInt(m, 10);
+            if (m === "on")
+                n.setFocus(-1);
+            else if (m === "off")
+                n.setFocus(0);
+            else if (isFinite(mins) && mins > 0)
+                n.setFocus(Date.now() + mins * 60000);
+            else
+                n.toggleFocus();
+            return n.focused ? "on" : "off";
         }
 
         function state(): string {

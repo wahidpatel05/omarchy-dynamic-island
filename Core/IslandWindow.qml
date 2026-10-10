@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
@@ -51,7 +52,15 @@ PanelWindow {
     // finished its opening animation. Leaving is only meaningful once there
     // has been an entering.
     property bool pointerWasInside: false
-    onExpandedChanged: pointerWasInside = false
+    // A sheet opened by clicking the island starts with the pointer already
+    // inside, and no enter event will arrive to say so.
+    onExpandedChanged: pointerWasInside = sheetMode && expanded && hover.hovered
+
+    // Control-sheet mode: clicking opens a separate sheet *below* the island
+    // instead of growing the island into the control centre. The island keeps
+    // doing whatever it was doing (resting, hover, activities) above it.
+    readonly property bool sheetMode: behaviour.controlSheet === true
+    readonly property bool sheetOpen: expanded && sheetMode
 
     readonly property bool focusedScreen: {
         var mon = Hyprland.focusedMonitor;
@@ -73,7 +82,7 @@ PanelWindow {
     // Priority runs top down: an explicit click beats an incoming event, which
     // beats a hover, which beats the resting pill.
     readonly property string islandState: {
-        if (expanded)
+        if (expanded && !sheetMode)
             return "expanded";
         if (activity)
             return "activity";
@@ -179,8 +188,16 @@ PanelWindow {
     // height. Grown into a card it should not stay proportionally round — a
     // 300px panel with a 150px corner is a lozenge, not a card — so the
     // height-driven term is capped and the shape settles at a fixed rounding.
-    readonly property real maxCardRadius: Style.space(28)
-    readonly property real radiusBottom: Math.min(bodyH * 0.5, Math.max(shape.radiusBottom || 17, Math.min(maxCardRadius, bodyH * 0.28)))
+    //
+    // The growth term follows the proportion the resting pill was given
+    // rather than a constant. An island configured as a true capsule stays
+    // capsule-ended as it grows into a card; one configured as a notch keeps
+    // the notch's flatter corner. A fixed factor here would quietly override
+    // `radiusBottom` for every shape taller than about twice its own radius,
+    // which is to say for every card the island ever draws.
+    readonly property real maxCardRadius: Style.space(56)
+    readonly property real restingRadiusRatio: Math.min(0.5, (shape.radiusBottom || 17) / Math.max(1, shape.collapsedHeight || 34))
+    readonly property real radiusBottom: Math.min(bodyH * 0.5, Math.max(shape.radiusBottom || 17, Math.min(maxCardRadius, bodyH * restingRadiusRatio)))
     readonly property real radiusTop: attached ? (shape.radiusTop || 0) : radiusBottom
     readonly property real fillet: attached ? (shape.fillet || 0) : 0
 
@@ -205,7 +222,7 @@ PanelWindow {
     // any content into the space — there is nothing to clip in the meantime.
     readonly property real restingSurfaceHeight: Math.round(inset + Math.max(shape.collapsedHeight || 32, capsulesEnabled ? capsuleHeight : 0) + Style.space(6))
     readonly property real fullSurfaceHeight: (shape.maxHeight || 560) + inset + Style.space(8)
-    readonly property bool needsRoom: islandState === "activity" || islandState === "expanded"
+    readonly property bool needsRoom: islandState === "activity" || islandState === "expanded" || sheetOpen
 
     // Held past the state change, because the island is still animating its
     // way back down when `needsRoom` goes false and shrinking the surface out
@@ -236,7 +253,8 @@ PanelWindow {
 
     WlrLayershell.namespace: "omarchy-dynamic-island"
     WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    // The sheet asks for the keyboard only while a Wi-Fi password is being typed.
+    WlrLayershell.keyboardFocus: sheetLoader.item && sheetLoader.item.wantsKeyboard ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     // Input is confined to the three shapes. Without this the full-width
     // surface would eat every click along the top of the screen. A retracted
@@ -249,6 +267,9 @@ PanelWindow {
             },
             Region {
                 item: rightCapsule
+            },
+            Region {
+                item: sheetHit
             }
         ]
     }
@@ -376,6 +397,12 @@ PanelWindow {
                     onLoaded: {
                         if (!item)
                             return;
+                        // Cards that show something still moving — the media
+                        // card's clock and play button — read the live source
+                        // off the host rather than the payload they were
+                        // pushed with.
+                        if ("host" in item)
+                            item.host = win.host;
                         if ("activity" in item)
                             item.activity = Qt.binding(function () {
                                 return win.activity;
@@ -447,7 +474,10 @@ PanelWindow {
                 if (hover.hovered) {
                     win.pointerWasInside = true;
                 } else if (win.expanded && win.pointerWasInside && win.behaviour.closeOnLeave !== false) {
-                    host.setExpanded("", false);
+                    if (win.sheetMode)
+                        sheetLeave.restart();
+                    else
+                        host.setExpanded("", false);
                 }
             }
         }
@@ -492,6 +522,144 @@ PanelWindow {
         TapHandler {
             acceptedButtons: Qt.RightButton
             onTapped: host.setStudio(String(win.modelData.name), host.studioScreen === "")
+        }
+    }
+
+    // ------------------------------------------------------ published size
+
+    // The island's current target size, per monitor, for other surfaces that
+    // want to grow out of it — the Command Island launcher opens from exactly
+    // this shape and folds back into it. Written to the runtime dir (memory,
+    // not disk), and only after the target settles, never per animation frame.
+    FileView {
+        id: geometryFile
+        path: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omarchy-island-" + String(win.modelData.name) + ".json"
+        printErrors: false
+    }
+
+    Timer {
+        id: geometryWrite
+        interval: 120
+        onTriggered: geometryFile.setText(JSON.stringify({
+            width: Math.round(win.targetWidth),
+            height: Math.round(win.targetHeight),
+            top: Math.round(win.inset),
+            radius: Math.round(Math.min(win.targetHeight / 2, win.shape.radiusBottom || 17)),
+            state: win.islandState
+        }))
+    }
+
+    onTargetWidthChanged: geometryWrite.restart()
+    onTargetHeightChanged: geometryWrite.restart()
+    Component.onCompleted: geometryWrite.restart()
+
+    // ---------------------------------------------------------- control sheet
+
+    readonly property var sheetEase: [0.45, 0, 0.2, 1, 1, 1]
+
+    Item {
+        id: sheetRoot
+
+        readonly property real gap: Style.space(8)
+        width: sheetLoader.item ? sheetLoader.item.implicitWidth : 0
+        height: sheetLoader.item ? sheetLoader.item.implicitHeight : 0
+        x: Math.round((win.width - width) / 2)
+        y: win.bottomAnchored ? win.height - win.inset - (win.shape.collapsedHeight || 32) - gap - height : win.inset + (win.shape.collapsedHeight || 32) + gap
+
+        visible: opacity > 0.01
+        opacity: win.sheetOpen ? 1 : 0
+        transform: Translate {
+            y: win.sheetOpen ? 0 : (win.bottomAnchored ? 6 : -6)
+            Behavior on y {
+                NumberAnimation {
+                    duration: 420
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: win.sheetEase
+                }
+            }
+        }
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 420
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: win.sheetEase
+            }
+        }
+        // Page changes resize the sheet; it eases to the new height rather
+        // than snapping.
+        Behavior on height {
+            NumberAnimation {
+                duration: 420
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: win.sheetEase
+            }
+        }
+        clip: true
+
+        Loader {
+            id: sheetLoader
+            width: parent.width
+            height: parent.height
+            active: win.sheetMode
+            sourceComponent: host ? host.sheetComponent : null
+
+            onLoaded: {
+                if (!item)
+                    return;
+                if ("host" in item)
+                    item.host = win.host;
+                if ("config" in item)
+                    item.config = Qt.binding(function () {
+                        return win.config;
+                    });
+                if ("open" in item)
+                    item.open = Qt.binding(function () {
+                        return win.sheetOpen;
+                    });
+                if ("foreground" in item)
+                    item.foreground = Qt.binding(function () {
+                        return host ? host.foreground : "white";
+                    });
+                if ("accent" in item)
+                    item.accent = Qt.binding(function () {
+                        return host ? host.accent : "white";
+                    });
+            }
+        }
+
+        HoverHandler {
+            id: sheetHover
+            onHoveredChanged: {
+                if (hovered)
+                    win.pointerWasInside = true;
+                else if (win.sheetOpen && win.behaviour.closeOnLeave !== false)
+                    sheetLeave.restart();
+            }
+        }
+    }
+
+    // Input region for the sheet: present only while it is open, so a faded
+    // sheet never swallows clicks meant for the windows below.
+    Item {
+        id: sheetHit
+        x: sheetRoot.x
+        y: sheetRoot.y
+        width: win.sheetOpen ? sheetRoot.width : 0
+        height: win.sheetOpen ? sheetRoot.height : 0
+    }
+
+    // Moving from the island down into the sheet crosses a gap that belongs
+    // to neither, so leaving only counts once the pointer has been outside
+    // both for a moment.
+    Timer {
+        id: sheetLeave
+        interval: 450
+        onTriggered: {
+            if (!win.sheetOpen || hover.hovered || sheetHover.hovered)
+                return;
+            if (sheetLoader.item && sheetLoader.item.wantsKeyboard)
+                return;
+            host.setExpanded("", false);
         }
     }
 

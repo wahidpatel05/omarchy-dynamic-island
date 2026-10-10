@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Notifications
 import "../Core/Config.js" as Config
 
@@ -60,6 +61,117 @@ Item {
     property var recent: []
     readonly property int recentLimit: 5
 
+    // ------------------------------------------------------------ history
+    //
+    // The exception to the above. With `source: "own"` Omarchy's service is
+    // off, so it keeps no history and nothing is divergent — there is simply
+    // no copy at all. In that case the island keeps one, on disk, for the
+    // control sheet's notification list. Mirroring mode leaves this empty and
+    // the panel's history stays the one true record.
+
+    readonly property bool keepsHistory: owningServer && options.history !== false
+    readonly property int historyLimit: Math.max(1, Number(options.historyLimit) || 30)
+    property var history: []
+    property int nextId: 1
+
+    function record(data) {
+        if (!keepsHistory)
+            return;
+        var next = history.slice();
+        next.unshift({
+            id: nextId++,
+            app: String(data.app || ""),
+            appIcon: String(data.appIcon || ""),
+            summary: String(data.summary || ""),
+            body: String(data.body || "").replace(/<[^>]*>/g, ""),
+            glyph: String(data.glyph || ""),
+            urgency: Number(data.urgency) || 0,
+            time: Date.now()
+        });
+        while (next.length > historyLimit)
+            next.pop();
+        history = next;
+        save();
+    }
+
+    function dismiss(id) {
+        history = history.filter(function (n) {
+            return n.id !== id;
+        });
+        save();
+    }
+
+    function clearHistory() {
+        history = [];
+        save();
+    }
+
+    // ------------------------------------------------------------- focus
+    //
+    // Do-not-disturb for the island's own server, which Omarchy's DND toggle
+    // can no longer reach. While on, notifications are recorded and leave the
+    // residue dot, but the island does not open for them. Critical ones still
+    // do: a low battery is not something to be quiet about.
+    //
+    // `focusUntil` is 0 for off, -1 for "until turned off", or the epoch ms at
+    // which it lapses on its own.
+
+    property double focusUntil: 0
+    property double clock: Date.now()
+    readonly property bool focused: focusUntil === -1 || focusUntil > clock
+
+    function setFocus(until) {
+        focusUntil = Number(until) || 0;
+        clock = Date.now();
+        save();
+    }
+
+    function toggleFocus() {
+        setFocus(focused ? 0 : -1);
+    }
+
+    // Ticks only while a timed focus is running, to notice it lapsing.
+    Timer {
+        interval: 15000
+        repeat: true
+        running: root.focusUntil > 0
+        onTriggered: {
+            root.clock = Date.now();
+            if (!root.focused && root.focusUntil !== 0)
+                root.setFocus(0);
+        }
+    }
+
+    property bool loaded: false
+
+    function save() {
+        if (!loaded)
+            return;
+        stateFile.setText(JSON.stringify({
+            focusUntil: focusUntil,
+            history: keepsHistory ? history : []
+        }) + "\n");
+    }
+
+    FileView {
+        id: stateFile
+        path: Quickshell.env("HOME") + "/.local/state/omarchy/island-notifications.json"
+        atomicWrites: true
+        printErrors: false
+        onLoaded: {
+            try {
+                var data = JSON.parse(text());
+                root.focusUntil = Number(data.focusUntil) || 0;
+                root.history = Array.isArray(data.history) ? data.history.slice(0, root.historyLimit) : [];
+                for (var i = 0; i < root.history.length; i++)
+                    root.nextId = Math.max(root.nextId, Number(root.history[i].id) + 1);
+            } catch (e) {}
+            root.clock = Date.now();
+            root.loaded = true;
+        }
+        onLoadFailed: root.loaded = true
+    }
+
     // ------------------------------------------------------------ residue
     //
     // What a notification leaves behind when it times out unread: a dot on
@@ -111,6 +223,13 @@ Item {
         while (next.length > recentLimit)
             next.pop();
         recent = next;
+        record(data);
+
+        if (focused && urgency !== NotificationUrgency.Critical) {
+            if (residueEnabled)
+                residue = true;
+            return;
+        }
 
         activities.push("notification", 50, data, durationFor(urgency, expireTimeout));
     }

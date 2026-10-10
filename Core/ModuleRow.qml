@@ -97,9 +97,17 @@ Row {
             return liveRingComponent;
         case "notificationDot":
             return notificationDotComponent;
+        case "focusDot":
+            return focusDotComponent;
         case "controlCentre":
         case "controlCenter":
             return controlCentreComponent;
+        case "statusDots":
+            return statusDotsComponent;
+        case "artRing":
+            return artRingComponent;
+        case "nowPlaying":
+            return nowPlayingComponent;
         default:
             return null;
         }
@@ -300,5 +308,25 @@ Row {
     Component {
         id: notificationDotComponent
         NotificationDot {}
+    }
+
+    Component {
+        id: focusDotComponent
+        FocusDot {}
+    }
+
+    Component {
+        id: statusDotsComponent
+        StatusDots {}
+    }
+
+    Component {
+        id: artRingComponent
+        ArtRing {}
+    }
+
+    Component {
+        id: nowPlayingComponent
+        NowPlaying {}
     }
 }

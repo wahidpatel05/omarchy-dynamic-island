@@ -7,7 +7,7 @@ system volume and brightness HUDs, and expands into a control centre on click.
 
 ```
  ╭─────╮            ╭────────────────────────╮      ╭──────────────────────────╮
- │  ✳  │            │  ▣  ♫ Now playing  ▮▮▮ │      │ ▾  ✻  Sun 20 Sep 13:09  ▯│
+ │  ✳  │            │  ▣  ▮▮▮  01:24     ◉   │      │ ▾  ✻  Sun 20 Sep 13:09  ▯│
  ╰─────╯            ╰────────────────────────╯      ╰──────────────────────────╯
    logo                    the island                      status corner
 ```
@@ -149,7 +149,7 @@ nothing is tied to one row.
 | `mediaControls` | Previous / play-pause / next | — |
 | `clock` | Time and date. Click opens the calendar | `format` (Qt date format), `panel` |
 | `workspaces` | Hyprland workspaces as dots; focused one stretches | `showEmpty`, `max` |
-| `media` | Now-playing title with dancing bars. Hidden when nothing plays. Click toggles, middle-click skips | `maxTitleWidth` |
+| `media` | Dancing bars, elapsed time and the player's mark. Hidden when nothing plays. Click toggles, middle-click skips | `showTitle`, `showElapsed`, `showSource`, `sourceTint`, `maxTitleWidth` |
 | `volume` / `audio` | Output volume glyph. Click mutes | `showPercentage` |
 | `battery` | Charge glyph and percentage. Hidden on desktops. Click opens the power panel | `showPercentage`, `warnBelow`, `panel` |
 | `network` | Wi-Fi arcs or an ethernet glyph, dimmed when offline. Click opens the Wi-Fi list | `panel`, `command` |
@@ -180,6 +180,24 @@ there is something real to show:
   "label": { "text": "impulse" }
 }
 ```
+
+While something is playing, the pill reads as the player it came from: the
+bars and the mark take Spotify's green or YouTube's red rather than the
+theme's accent, and the clock counts the track up. The title is not on the
+pill — the island announces it in full the moment the track changes, and a
+title is the one field that grows without limit under a shape that has to stay
+a pill. Put it back, or go monochrome:
+
+```jsonc
+"modules": {
+  "media": { "showTitle": true, "sourceTint": false }
+}
+```
+
+A player the island does not recognise keeps the theme's accent and shows no
+mark, and the clock only appears for a player that reports its position — which
+rules out some streams. When neither is available the title comes back on its
+own, so the pill never reduces to a row of bars saying nothing.
 
 The `menu` module draws Omarchy's own mark, which lives in the `omarchy` font
 rather than in your Nerd Font. Any glyph from any family can take its place —
@@ -617,6 +635,30 @@ running?" unanswerable at startup, and guessing wrong means two servers racing
 for the bus on every login.
 
 Note that `source: "own"` gives up Omarchy's notification history and DND.
+The island makes up for both, in the control sheet:
+
+- **History.** The last 30 notifications are listed under the sliders. Click
+  one to dismiss it, or use **Clear**. They are kept in
+  `~/.local/state/omarchy/island-notifications.json` across restarts. Set
+  `activities.notification.history: false` to turn this off, and
+  `historyLimit` to keep more or fewer.
+- **Focus.** The Focus tile holds notifications back. They are still recorded
+  and still leave the residue dot, but the island does not open for them.
+  Critical notifications always get through. Choose how long it lasts: until
+  you turn it off, for an hour, or until the next prayer. Add `focusDot` to
+  `collapsed` to show a crescent on the pill while Focus is on.
+
+```bash
+omarchy-shell island focus toggle   # or on, off, or a number of minutes
+```
+
+## Phone
+
+With KDE Connect running and a phone paired, the sheet's Phone tile shows its
+battery and cellular network. It opens a page with **Ring phone**, **Send
+clipboard**, **Browse files** (mounted over sshfs) and **Ping**. It reads the
+phone only while the sheet is open. `omarchy-shell island sheet phone` opens
+that page directly.
 
 ---
 

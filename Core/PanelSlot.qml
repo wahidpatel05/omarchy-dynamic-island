@@ -105,7 +105,17 @@ Item {
 
     Loader {
         id: loader
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        // A chromed widget keeps its own height and is centred. Omarchy's
+        // widgets are laid out for `barSize`, which carries the island's top
+        // inset and so is taller than a capsule; squeezed to the slot, the
+        // tray's chevron — placed at y 0 rather than centred — sat low.
+        height: root.chrome && item ? item.implicitHeight : parent.height
+        // The tray's chevron is a thin glyph with its optical centre high in
+        // the em box; geometrically centred it still reads above the row.
+        anchors.verticalCenterOffset: root.chrome && root.pluginId === "omarchy.tray" ? 0.5 : 0
         sourceComponent: root.component
 
         opacity: root.chrome ? 1 : 0
